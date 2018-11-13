@@ -4,31 +4,41 @@ import torch.nn.functional as F
 from npi_core import NPICore
 
 
+class PKeyMem(nn.Module):
+    def __init__(self, n_progs, pkey_dim):
+        super(PKeyMem, self).__init__()
+        self.n_progs = n_progs
+        self.pkey_mem = nn.Parameter(torch.randn(n_progs, pkey_dim))
+
+    def is_act(self, prog_id):
+        return prog_id == 0
+
+    def calc_correlation_scores(self, pkey):
+        return (self.pkey_mem @ pkey.unsqueeze(1)).view(-1)
+
+
 class NPI(nn.Module):
     def __init__(self,
                  core,
-                 f_enc,
-                 f_env,
-                 n_progs,
+                 task,
+                 pkey_mem,
                  ret_threshold,
-                 pkey_dim,
+                 n_progs,
                  prog_dim):
         super(NPI, self).__init__()
         self.core = core
-        self.f_enc = f_enc
-        self.f_env = f_env
-        self.n_progs = n_progs
+        self.task = task
         self.ret_threshold = ret_threshold
+        self.n_progs = n_progs
         self.prog_dim = prog_dim
-        self.pkey_mem = nn.Parameter(torch.randn(n_progs, pkey_dim))
+        self.pkey_mem = pkey_mem
         self.prog_mem = nn.Parameter(torch.randn(n_progs, prog_dim))
-        self.act = 0  # ACT always has prog_id = 0
 
     def forward(self, env, prog_id, args):
-        state = self.f_enc(env, args)
+        state = self.task.f_enc(env, args)
         prog = self.prog_mem[prog_id]
         ret, pkey, new_args = self.core(state, prog)
-        scores = (self.pkey_mem @ pkey.t()).view(-1)
+        scores = self.pkey_mem.calc_correlation_scores(pkey)
         prog_id_log_probs = F.softmax(scores, dim=0)
         return ret, prog_id_log_probs, new_args
 
@@ -38,18 +48,14 @@ class NPI(nn.Module):
         while ret < self.ret_threshold:
             ret, prog_id_log_probs, args = self.forward(env, prog_id, args)
             prog_id = torch.argmax(prog_id_log_probs)
-            # todo: yield values
-            # print('--------')
-            # print(ret, env, prog_id, args)
-            # print('---------')
-            if prog_id == self.act:
-                env = self.f_env(env, prog_id, args)
+            if self.pkey_mem.is_act(prog_id):
+                env = self.task.f_env(env, prog_id, args)
             else:
                 ret = 0
+            yield ret, env, prog_id, args
 
 
-def npi_factory(f_enc,  # encoder fn:: (Env, args: Tensor[args_dim]) -> Tensor[state_dim]
-                f_env,  # env fn:: (Env, args: Tensor[args_dim], prog_id: int) -> Env
+def npi_factory(task,
                 state_dim,  # state tensor dimension
                 n_progs,  # number of programs
                 prog_dim,  # program embedding dimension
@@ -64,31 +70,48 @@ def npi_factory(f_enc,  # encoder fn:: (Env, args: Tensor[args_dim]) -> Tensor[s
                    n_lstm_layers=n_lstm_layers,
                    pkey_dim=pkey_dim,
                    args_dim=args_dim)
+
+    pkey_mem = PKeyMem(n_progs=n_progs,
+                       pkey_dim=pkey_dim)
+
     npi = NPI(core=core,
-              f_enc=f_enc,
-              f_env=f_env,
-              n_progs=n_progs,
+              task=task,
+              pkey_mem=pkey_mem,
               ret_threshold=ret_threshold,
-              pkey_dim=pkey_dim,
+              n_progs=n_progs,
               prog_dim=prog_dim)
+
     return npi
 
 
 if __name__ == '__main__':
+    import random
+    import sys
+    from task_base import TaskBase
+
+    seed = random.randrange(sys.maxsize)
+    print('seed= {}'.format(seed))
+    torch.manual_seed(seed)
+    # good seeds: 1528524055033086069, 8996695485408183525, 603660310440929170
+
     state_dim = 2
     args_dim = 3
 
 
-    def f_enc(env, args):
-        return torch.randn(state_dim)
+    class DummyTask(TaskBase):
+        def __init__(self, state_dim):
+            self.state_dim = state_dim
+
+        def f_enc(self, env, args):
+            return torch.randn(self.state_dim)
+
+        def f_env(self, env, prog_id, args):
+            return torch.randn(1)
 
 
-    def f_env(env, prog_id, args):
-        return torch.randn(1)
+    dummy_task = DummyTask(state_dim)
 
-
-    npi = npi_factory(f_enc=f_enc,
-                      f_env=f_env,
+    npi = npi_factory(task=dummy_task,
                       state_dim=state_dim,
                       n_progs=4,
                       prog_dim=5,
@@ -99,4 +122,7 @@ if __name__ == '__main__':
                       args_dim=args_dim)
 
     ret, prog_id_probs, new_args = npi(42, 1, torch.randn(args_dim))
-    npi.run(42, 1, torch.randn(args_dim))
+    it = npi.run(42, 1, torch.randn(args_dim))
+    for x in it:
+        print(x)
+    # or run with next(it)
