@@ -39,20 +39,20 @@ class NPI(nn.Module):
         prog = self.prog_mem[prog_id]
         ret, pkey, new_args = self.core(state, prog)
         scores = self.pkey_mem.calc_correlation_scores(pkey)
-        prog_id_log_probs = F.softmax(scores, dim=0)
+        prog_id_log_probs = F.log_softmax(scores, dim=0)  # log softmax is more numerically stable
         return ret, prog_id_log_probs, new_args
 
     def run(self, env, prog_id, args):
-        self.core.reset()
         ret = 0
         while ret < self.ret_threshold:
             ret, prog_id_log_probs, args = self.forward(env, prog_id, args)
             prog_id = torch.argmax(prog_id_log_probs)
+
+            yield ret, env, prog_id, args
             if self.pkey_mem.is_act(prog_id):
                 env = self.task.f_env(env, prog_id, args)
             else:
-                ret = 0
-            yield ret, env, prog_id, args
+                yield from self.run(env, prog_id, args)  # todo: change to iteration
 
 
 def npi_factory(task,
@@ -92,7 +92,7 @@ if __name__ == '__main__':
     seed = random.randrange(sys.maxsize)
     print('seed= {}'.format(seed))
     torch.manual_seed(seed)
-    # good seeds: 1528524055033086069, 8996695485408183525, 603660310440929170
+    # good seeds: 1528524055033086069, 8996695485408183525, 603660310440929170, 7859767191706266139
 
     state_dim = 2
     args_dim = 3
