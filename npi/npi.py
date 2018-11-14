@@ -5,13 +5,17 @@ from npi_core import NPICore
 
 
 class PKeyMem(nn.Module):
-    def __init__(self, n_progs, pkey_dim):
+    def __init__(self, n_progs, pkey_dim, n_act=1):
         super(PKeyMem, self).__init__()
+        if n_act >= n_progs:
+            raise ValueError(
+                'program memory of size {} is not enough for {} ACTs'.format(n_progs, n_act))
         self.n_progs = n_progs
         self.pkey_mem = nn.Parameter(torch.randn(n_progs, pkey_dim))
+        self.n_act = n_act
 
     def is_act(self, prog_id):
-        return prog_id == 0
+        return prog_id < self.n_act
 
     def calc_correlation_scores(self, pkey):
         return (self.pkey_mem @ pkey.unsqueeze(1)).view(-1)
@@ -48,6 +52,7 @@ class NPI(nn.Module):
             ret, prog_id_log_probs, args = self.forward(env, prog_id, args)
             prog_id = torch.argmax(prog_id_log_probs)
 
+            # return probability, CURRENT environment, NEXT program id, NEXT program args
             yield ret, env, prog_id, args
             if self.pkey_mem.is_act(prog_id):
                 env = self.task.f_env(env, prog_id, args)
