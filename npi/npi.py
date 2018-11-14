@@ -47,17 +47,22 @@ class NPI(nn.Module):
         return ret, prog_id_log_probs, new_args
 
     def run(self, env, prog_id, args):
+        self.core.reset()
         ret = 0
-        while ret < self.ret_threshold:
-            ret, prog_id_log_probs, args = self.forward(env, prog_id, args)
-            prog_id = torch.argmax(prog_id_log_probs)
+        stack = [(ret, env, prog_id, args)]
+        while stack:
+            ret, env, prog_id, args = stack.pop()
+            while ret < self.ret_threshold:
+                ret, prog_id_log_probs, args = self.forward(env, prog_id, args)
+                prog_id = torch.argmax(prog_id_log_probs)
 
-            # return probability, CURRENT environment, NEXT program id, NEXT program args
-            yield ret, env, prog_id, args
-            if self.pkey_mem.is_act(prog_id):
-                env = self.task.f_env(env, prog_id, args)
-            else:
-                yield from self.run(env, prog_id, args)  # todo: change to iteration
+                # return probability, CURRENT environment, NEXT program id, NEXT program args
+                yield ret, env, prog_id, args
+                if self.pkey_mem.is_act(prog_id):
+                    env = self.task.f_env(env, prog_id, args)
+                else:
+                    stack.append((ret, env, prog_id, args))
+                    ret = 0
 
 
 def npi_factory(task,
@@ -97,7 +102,7 @@ if __name__ == '__main__':
     seed = random.randrange(sys.maxsize)
     print('seed= {}'.format(seed))
     torch.manual_seed(seed)
-    # good seeds: 1528524055033086069, 8996695485408183525, 603660310440929170, 7859767191706266139
+    # good seeds: 3012301450106014430, 8355969846977864139, 6092716128662012966
 
     state_dim = 2
     args_dim = 3
@@ -118,12 +123,12 @@ if __name__ == '__main__':
 
     npi = npi_factory(task=dummy_task,
                       state_dim=state_dim,
-                      n_progs=4,
+                      n_progs=3,
                       prog_dim=5,
                       hidden_dim=3,
                       n_lstm_layers=2,
                       ret_threshold=0.2,
-                      pkey_dim=3,
+                      pkey_dim=4,
                       args_dim=args_dim)
 
     ret, prog_id_probs, new_args = npi(42, 1, torch.randn(args_dim))
