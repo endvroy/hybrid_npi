@@ -18,7 +18,7 @@ class PKeyMem(nn.Module):
         return prog_id < self.n_act
 
     def calc_correlation_scores(self, pkey):
-        return (self.pkey_mem @ pkey.unsqueeze(1)).view(-1)
+        return (self.pkey_mem @ pkey.unsqueeze(1)).view(-1)  # here unsqueeze means transpose
 
 
 class NPI(nn.Module):
@@ -38,30 +38,30 @@ class NPI(nn.Module):
         self.pkey_mem = pkey_mem
         self.prog_mem = nn.Parameter(torch.randn(n_progs, prog_dim))
 
-    def forward(self, env, prog_id, args):
-        state = self.task.f_enc(env, args)
+    def forward(self, prog_id, args):
+        state = self.task.f_enc(args)
         prog = self.prog_mem[prog_id]
         ret, pkey, new_args = self.core(state, prog)
         scores = self.pkey_mem.calc_correlation_scores(pkey)
         prog_id_log_probs = F.log_softmax(scores, dim=0)  # log softmax is more numerically stable
         return ret, prog_id_log_probs, new_args
 
-    def run(self, env, prog_id, args):
+    def run(self, prog_id, args):
         self.core.reset()
         ret = 0
-        stack = [(ret, env, prog_id, args)]
+        stack = [(ret, prog_id, args)]
         while stack:
-            ret, env, prog_id, args = stack.pop()
+            ret, prog_id, args = stack.pop()
             while ret < self.ret_threshold:
-                ret, prog_id_log_probs, args = self.forward(env, prog_id, args)
+                ret, prog_id_log_probs, args = self.forward(prog_id, args)
                 prog_id = torch.argmax(prog_id_log_probs)
 
-                # return probability, CURRENT environment, NEXT program id, NEXT program args
-                yield ret, env, prog_id, args
+                # return probability, NEXT program id, NEXT program args
+                yield ret, prog_id, args
                 if self.pkey_mem.is_act(prog_id):
-                    env = self.task.f_env(env, prog_id, args)
+                    self.task.f_env(prog_id, args)
                 else:
-                    stack.append((ret, env, prog_id, args))
+                    stack.append((ret, prog_id, args))
                     ret = 0
 
 
@@ -101,7 +101,7 @@ if __name__ == '__main__':
 
     seed = random.randrange(sys.maxsize)
     print('seed= {}'.format(seed))
-    torch.manual_seed(seed)
+    torch.manual_seed(3012301450106014430)
     # good seeds: 3012301450106014430, 8355969846977864139, 6092716128662012966
 
     state_dim = 2
@@ -111,12 +111,13 @@ if __name__ == '__main__':
     class DummyTask(TaskBase):
         def __init__(self, state_dim):
             self.state_dim = state_dim
+            self.env = 42
 
-        def f_enc(self, env, args):
+        def f_enc(self, args):
             return torch.randn(self.state_dim)
 
-        def f_env(self, env, prog_id, args):
-            return torch.randn(1)
+        def f_env(self, prog_id, args):
+            self.env = torch.randn(1)
 
 
     dummy_task = DummyTask(state_dim)
@@ -131,8 +132,9 @@ if __name__ == '__main__':
                       pkey_dim=4,
                       args_dim=args_dim)
 
-    ret, prog_id_probs, new_args = npi(42, 1, torch.randn(args_dim))
-    it = npi.run(42, 1, torch.randn(args_dim))
+    ret, prog_id_probs, new_args = npi(1, torch.randn(args_dim))
+    it = npi.run(1, torch.randn(args_dim))
     for x in it:
-        print(x)
+        print(x, dummy_task.env)
+    print(dummy_task.env)
     # or run with next(it)
