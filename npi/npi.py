@@ -110,18 +110,17 @@ if __name__ == '__main__':
 
 
     class DummyTask(TaskBase):
-        def __init__(self, state_dim):
-            self.state_dim = state_dim
-            self.env = 42
+        def __init__(self, env, state_dim, batch_size=1):
+            super(DummyTask, self).__init__(env, state_dim, batch_size=batch_size)
 
         def f_enc(self, args):
             return torch.randn(args.size(0), self.state_dim)
 
         def f_env(self, prog_id, args):
-            self.env = torch.randn(prog_id.size(0), 1)
+            self.env = torch.randn(prog_id.size(0), self.batch_size)
 
 
-    dummy_task = DummyTask(state_dim)
+    dummy_task = DummyTask(42, state_dim)
 
     npi = npi_factory(task=dummy_task,
                       state_dim=state_dim,
