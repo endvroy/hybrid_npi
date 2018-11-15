@@ -35,16 +35,16 @@ class NPICore(nn.Module):
     def forward(self, state, prog):
         inp = torch.cat([state, prog], -1)
         # for LSTM, out and h are the same
-        lstm_h, self.last_lstm_state = self.lstm(inp.view(1, 1, -1), self.last_lstm_state)
-        ret = F.sigmoid(self.ret_fc(lstm_h).view(-1))
-        pkey = F.tanh(self.pkey_fc(lstm_h).view(-1))
-        args = F.tanh(self.args_fc(lstm_h).view(-1))
+        lstm_h, self.last_lstm_state = self.lstm(inp.unsqueeze(1), self.last_lstm_state)
+        ret = F.sigmoid(self.ret_fc(lstm_h)).squeeze(1)
+        pkey = F.tanh(self.pkey_fc(lstm_h)).squeeze(1)
+        args = F.tanh(self.args_fc(lstm_h)).squeeze(1)
         return ret, pkey, args
 
 
 if __name__ == '__main__':
-    state = torch.randn(3)
-    prog = torch.randn(4)
+    state = torch.randn(2, 3)
+    prog = torch.randn(2, 4)
     core = NPICore(state_dim=3,
                    prog_dim=4,
                    hidden_dim=5,
