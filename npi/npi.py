@@ -6,6 +6,9 @@ from npi_core import NPICore
 
 class PKeyMem(nn.Module):
     def __init__(self, n_progs, pkey_dim, n_act=1):
+        """
+        The memory is always organized as [ACTs, PROGs]
+        """
         super(PKeyMem, self).__init__()
         if n_act >= n_progs:
             raise ValueError(
