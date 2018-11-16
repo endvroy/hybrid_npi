@@ -7,7 +7,7 @@ class NPICore(nn.Module):
     def __init__(self,
                  state_dim,
                  prog_dim,
-                 hidden_dim,
+                 hidden_dim,  # 2 by default
                  n_lstm_layers,
                  pkey_dim,
                  args_dim):
@@ -36,17 +36,18 @@ class NPICore(nn.Module):
         inp = torch.cat([state, prog], -1)
         # for LSTM, out and h are the same
         lstm_h, self.last_lstm_state = self.lstm(inp.unsqueeze(1), self.last_lstm_state)
-        ret = F.sigmoid(self.ret_fc(lstm_h)).squeeze(1)
-        pkey = F.tanh(self.pkey_fc(lstm_h)).squeeze(1)
-        args = F.tanh(self.args_fc(lstm_h)).squeeze(1)
+        emb = F.relu(lstm_h)
+        ret = self.ret_fc(emb).squeeze(1)
+        pkey = self.pkey_fc(emb).squeeze(1)
+        args = self.args_fc(emb).squeeze(1)
         return ret, pkey, args
 
 
 if __name__ == '__main__':
     state = torch.randn(2, 3)
-    prog = torch.randn(2, 4)
+    prog = torch.randn(2, 6)
     core = NPICore(state_dim=3,
-                   prog_dim=4,
+                   prog_dim=6,
                    hidden_dim=5,
                    n_lstm_layers=2,
                    pkey_dim=4,
