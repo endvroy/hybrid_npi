@@ -28,3 +28,4 @@ class TaskBase(nn.Module, abc.ABC):
     @abc.abstractmethod
     def f_env(self, prog_id, args):
         """env fn:: (args: Tensor[args_dim], prog_id: int)"""
+        """change env inside"""
