@@ -5,7 +5,9 @@ Core class definition for a trace object => given a pair of integers to add, bui
 trace, calling the specified subprograms.
 
 """
-from env.config import ScratchPad, PROGRAM_ID as P
+from env.scratchpad import ScratchPad
+from env.config import PROGRAM_ID as P
+from env.config import CONFIG
 ADD, ADD1, WRITE, LSHIFT, CARRY, MOVE_PTR = "ADD", "ADD1", "WRITE", "LSHIFT", "CARRY", "MOVE_PTR"
 WRITE_OUT, WRITE_CARRY = 0, 1
 IN1_PTR, IN2_PTR, CARRY_PTR, OUT_PTR = range(4)
@@ -20,7 +22,7 @@ class Trace():
 
         """
         self.in1, self.in2, self.debug = in1, in2, debug
-        self.trace, self.scratch = [], ScratchPad(in1, in2)
+        self.trace, self.scratch = [], ScratchPad(in1, in2, CONFIG["ENVIRONMENT_ROW"], CONFIG["ENVIRONMENT_COL"])
 
         # Build Execution Trace
         self.build()
