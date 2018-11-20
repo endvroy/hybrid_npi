@@ -91,9 +91,9 @@ class AdditionTask(TaskBase):
     
     def get_args(self, args, arg_in=True):
         if arg_in:
-            arg_vec = np.zeros((self.argument_num, self.argument_depth), dtype=np.int32)
+            arg_vec = torch.zeros((self.argument_num, self.argument_depth))
         else:
-            arg_vec = [np.zeros((self.argument_depth), dtype=np.int32) for _ in
+            arg_vec = [torch.zeros((self.argument_depth,)) for _ in
                     range(self.argument_num)]
         if len(args) > 0:
             for i in range(self.argument_num):
@@ -104,7 +104,7 @@ class AdditionTask(TaskBase):
         else:
             for i in range(self.argument_num):
                 arg_vec[i][self.default_argument_num] = 1
-        return [arg_vec.flatten() if arg_in else arg_vec]
+        return [arg_vec.view(arg_vec.numel()) if arg_in else arg_vec]
 
     def f_enc(self, args):
         env = [self.scratch_pads[i].get_env() for i in range(self.batch_size)]
