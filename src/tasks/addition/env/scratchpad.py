@@ -127,7 +127,7 @@ class ScratchPad():  # Addition Environment
 
 
 if __name__ == '__main__':
-    from tasks.addition.env.config import CONFIG
+    from src.tasks.addition.env.config import CONFIG
 
     in1 = 3950631523
     in2 = 2276599362

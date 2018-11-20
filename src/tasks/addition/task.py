@@ -2,7 +2,7 @@ from tasks.task_base import TaskBase
 import torch
 from torch import nn
 import torch.nn.functional as F
-from tasks.addition.env.scratchpad import ScratchPad
+from src.tasks.addition.env.scratchpad import ScratchPad
 import copy
 
 MOVE_PID, WRITE_PID = 0, 1
