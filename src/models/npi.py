@@ -88,20 +88,20 @@ def npi_factory(task,
     pkey_mem = PKeyMem(n_progs=n_progs,
                        pkey_dim=pkey_dim)
 
-    npi = NPI(core=core,
-              task=task,
-              pkey_mem=pkey_mem,
-              ret_threshold=ret_threshold,
-              n_progs=n_progs,
-              prog_dim=prog_dim)
+    model = NPI(core=core,
+                task=task,
+                pkey_mem=pkey_mem,
+                ret_threshold=ret_threshold,
+                n_progs=n_progs,
+                prog_dim=prog_dim)
 
-    return npi
+    return model
 
 
 if __name__ == '__main__':
     import random
     import sys
-    from task_base import TaskBase
+    from ..tasks.task_base import TaskBase  # todo: fix
 
     seed = random.randrange(sys.maxsize)
     print('seed= {}'.format(seed))
@@ -113,8 +113,8 @@ if __name__ == '__main__':
 
 
     class DummyTask(TaskBase):
-        def __init__(self, env, state_dim, batch_size=1):
-            super(DummyTask, self).__init__(env, state_dim, batch_size=batch_size)
+        def __init__(self, env, state_dim):
+            super(DummyTask, self).__init__(env, state_dim)
 
         def f_enc(self, args):
             return torch.randn(args.size(0), self.state_dim)
@@ -125,18 +125,18 @@ if __name__ == '__main__':
 
     dummy_task = DummyTask(42, state_dim)
 
-    npi = npi_factory(task=dummy_task,
-                      state_dim=state_dim,
-                      n_progs=3,
-                      prog_dim=5,
-                      hidden_dim=3,
-                      n_lstm_layers=2,
-                      ret_threshold=0.38,
-                      pkey_dim=4,
-                      args_dim=args_dim)
+    model = npi_factory(task=dummy_task,
+                        state_dim=state_dim,
+                        n_progs=3,
+                        prog_dim=5,
+                        hidden_dim=3,
+                        n_lstm_layers=2,
+                        ret_threshold=0.38,
+                        pkey_dim=4,
+                        args_dim=args_dim)
 
-    ret, prog_id_probs, new_args = npi(torch.tensor([1, 2]), torch.randn(2, args_dim))
-    it = npi.run(torch.tensor([1]), torch.randn(1, args_dim))
+    ret, prog_id_probs, new_args = model(torch.tensor([1, 2]), torch.randn(2, args_dim))
+    it = model.run(torch.tensor([1]), torch.randn(1, args_dim))
     for x in it:
         print(x, dummy_task.env)
     print(dummy_task.env)
