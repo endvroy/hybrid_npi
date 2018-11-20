@@ -36,4 +36,5 @@ class TaskBase(nn.Module, abc.ABC):
         """
         env fn:: (args: Tensor[args_dim], prog_id: int)
         all args are in batches
+        change env inside
         """
