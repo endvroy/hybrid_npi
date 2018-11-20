@@ -5,9 +5,9 @@ Core class definition for a trace object => given a pair of integers to add, bui
 trace, calling the specified subprograms.
 
 """
-from env.scratchpad import ScratchPad
-from env.config import PROGRAM_ID as P
-from env.config import CONFIG
+from tasks.addition.env.scratchpad import ScratchPad
+from tasks.addition.env.config import PROGRAM_ID as P
+from tasks.addition.env.config import CONFIG
 ADD, ADD1, WRITE, LSHIFT, CARRY, MOVE_PTR = "ADD", "ADD1", "WRITE", "LSHIFT", "CARRY", "MOVE_PTR"
 WRITE_OUT, WRITE_CARRY = 0, 1
 IN1_PTR, IN2_PTR, CARRY_PTR, OUT_PTR = range(4)
