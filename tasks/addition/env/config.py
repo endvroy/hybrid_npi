@@ -6,7 +6,7 @@ Embedding Information, etc.
 
 """
 import numpy as np
-
+import torch
 
 CONFIG = {
     "ENVIRONMENT_ROW": 4,         # Input 1, Input 2, Carry, Output
@@ -37,22 +37,4 @@ PROGRAM_ID = {x[0]: i for i, x in enumerate(PROGRAM_SET)}
 class Arguments():             # Program Arguments
     def __init__(self, args, num_args=CONFIG["ARGUMENT_NUM"], arg_depth=CONFIG["ARGUMENT_DEPTH"]):
         self.args = args
-        self.arg_vec = np.zeros((num_args, arg_depth), dtype=np.float32)
-
-
-def get_args(args, arg_in=True):
-    if arg_in:
-        arg_vec = np.zeros((CONFIG["ARGUMENT_NUM"], CONFIG["ARGUMENT_DEPTH"]), dtype=np.int32)
-    else:
-        arg_vec = [np.zeros((CONFIG["ARGUMENT_DEPTH"]), dtype=np.int32) for _ in
-                   range(CONFIG["ARGUMENT_NUM"])]
-    if len(args) > 0:
-        for i in range(CONFIG["ARGUMENT_NUM"]):
-            if i >= len(args):
-                arg_vec[i][CONFIG["DEFAULT_ARG_VALUE"]] = 1
-            else:
-                arg_vec[i][args[i]] = 1
-    else:
-        for i in range(CONFIG["ARGUMENT_NUM"]):
-            arg_vec[i][CONFIG["DEFAULT_ARG_VALUE"]] = 1
-    return arg_vec.flatten() if arg_in else arg_vec
+        self.arg_vec = torch.zeros((num_args, arg_depth))
