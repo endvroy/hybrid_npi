@@ -84,7 +84,7 @@ celerybeat-schedule
 
 # dotenv
 .env
-myenv 
+myenv
 
 # Spyder project settings
 .spyderproject
@@ -94,3 +94,7 @@ myenv
 
 # PyCharm
 .idea/
+
+# Created by .ignore support plugin (hsz.mobi)
+myenv
+__pycache__
