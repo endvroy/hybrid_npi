@@ -17,7 +17,7 @@ class Agent(object):
     list_of_params.append({'params': self.npi.parameters()})
     self.pretrain_optimizer = optim.Adam(list_of_params, lr=PRETRAIN_LR,
                                          weight_decay=PRETRAIN_WRIGHT_DECAY)
-    self.criterion = nn.CrossEntropyLoss()
+    self.criterion = nn.NLLLoss()
 
 
 def train(npi, data, trace, epochs=10):
