@@ -2,7 +2,7 @@ import json
 
 
 # element of input_trace is dict={'ret':B*T*1,'prog_id:B*T*1','args:B*T*x'}
-def traceJson_to_traceInput(batchsize, args_dim, padding, in_file, out_file):
+def trace_json_to_input(batchsize, args_dim, padding, in_file, out_file):
   with open(in_file, 'r') as fin:
     # element of traces is list=[[["prog_name",prog_id],args,ret],[...],[...]]
     traces = json.load(fin)
@@ -36,6 +36,6 @@ def traceJson_to_traceInput(batchsize, args_dim, padding, in_file, out_file):
 
 
 if __name__ == "__main__":
-  traceJson_to_traceInput(batchsize=1, args_dim=3, padding=True,
-                          in_file="./src/tasks/addition/data/train_trace.json",
-                          out_file="./src/tasks/addition/data/train_trace_input.json")
+  trace_json_to_input(batchsize=1, args_dim=3, padding=True,
+                      in_file="./src/tasks/addition/data/train_trace.json",
+                      out_file="./src/tasks/addition/data/train_trace_input.json")

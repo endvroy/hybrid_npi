@@ -17,7 +17,8 @@ class Agent(object):
     list_of_params.append({'params': self.npi.parameters()})
     self.pretrain_optimizer = optim.Adam(list_of_params, lr=PRETRAIN_LR,
                                          weight_decay=PRETRAIN_WRIGHT_DECAY)
-    self.criterion = nn.NLLLoss()
+    self.criterion_nll = nn.NLLLoss()
+    self.criterion_cross = nn.CrossEntropyLoss()
 
 
 def train(npi, data, trace, epochs=10):
@@ -53,20 +54,22 @@ def train(npi, data, trace, epochs=10):
         new_prog_id = torch.argmax(new_prog_id_log_probs, dim=1)
         
         # loss
-        new_para = torch.cat([new_ret, new_prog_id_log_probs, new_args], -1)
+        # new_para = torch.cat([new_ret, new_prog_id_log_probs, new_args], -1)
         truth_ret = trace[t + 1]["ret"]
         truth_prog_id = trace[t + 1]["prog_id"]
         truth_prog_id_log_probs = torch.zeros(agent.npi.n_progs)
         truth_prog_id_log_probs[int(truth_prog_id[0])] = 1.0
         truth_args = trace[t + 1]["args"]
-        truth_para = torch.cat([truth_ret, truth_prog_id_log_probs, truth_args], -1)
+        # truth_para = torch.cat([truth_ret, truth_prog_id_log_probs, truth_args], -1)
         
-        loss_batch = agent.criterion(new_para, truth_para)
+        loss_batch = torch.cat([agent.criterion_cross(new_ret, truth_ret),
+                                agent.criterion_nll(new_prog_id, truth_prog_id),
+                                agent.criterion_cross(new_args, truth_args)], -1)
         
         arg_error += (truth_args - new_args) ** 2
         ret_error += (truth_ret - new_ret) ** 2
         prog_error += (truth_prog_id_log_probs - new_prog_id_log_probs) ** 2
-        total_loss += ((truth_para - new_para) ** 2).sum().to(dtype=torch.float32)
+        total_loss += (loss_batch ** 2).sum().to(dtype=torch.float32)
         
         # backpropagation
         agent.pretrain_optimizer.zero_grad()
@@ -107,8 +110,8 @@ if __name__ == "__main__":
   
   
   class DummyTask(TaskBase):
-    def __init__(self, env, state_dim, batch_size=1):
-      super(DummyTask, self).__init__(env, state_dim, batch_size=batch_size)
+    def __init__(self, env, state_dim):
+      super(DummyTask, self).__init__(env, state_dim)
     
     def f_enc(self, args):
       return torch.randn(args.size(0), self.state_dim)
