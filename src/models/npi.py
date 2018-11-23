@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
-from npi_core import NPICore
+from models.npi_core import NPICore
 
 
 class PKeyMem(nn.Module):
