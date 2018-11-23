@@ -77,7 +77,8 @@ def npi_factory(task,
                 n_lstm_layers,  # number of LSTM layers (in core)
                 ret_threshold,  # return probability threshold
                 pkey_dim,  # program key dimension
-                args_dim):  # argument vector dimension
+                args_dim,  # argument vector dimension
+                n_act=1):  # num of ACTs
     core = NPICore(state_dim=state_dim,
                    prog_dim=prog_dim,
                    hidden_dim=hidden_dim,
@@ -86,7 +87,8 @@ def npi_factory(task,
                    args_dim=args_dim)
 
     pkey_mem = PKeyMem(n_progs=n_progs,
-                       pkey_dim=pkey_dim)
+                       pkey_dim=pkey_dim,
+                       n_act=n_act)
 
     model = NPI(core=core,
                 task=task,
