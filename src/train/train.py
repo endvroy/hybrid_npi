@@ -1,8 +1,8 @@
-from npi.npi import *
+from models.npi import npi_factory
 import sys, time, math
 import torch.nn as nn
 import torch.optim as optim
-from npi.task_base import TaskBase
+from tasks.task_base import TaskBase
 
 PRETRAIN_WRIGHT_DECAY = 0.00001
 PRETRAIN_LR = 0.0001
