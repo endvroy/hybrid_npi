@@ -37,7 +37,7 @@ class NPICore(nn.Module):
         # for LSTM, out and h are the same
         lstm_h, self.last_lstm_state = self.lstm(inp.unsqueeze(1), self.last_lstm_state)
         emb = F.relu(lstm_h)
-        ret = self.ret_fc(emb).squeeze(1)
+        ret = self.ret_fc(emb).squeeze(1).squeeze(1)
         pkey = self.pkey_fc(emb).squeeze(1)
         args = self.args_fc(emb).squeeze(1)
         return ret, pkey, args
