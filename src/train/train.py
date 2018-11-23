@@ -1,5 +1,6 @@
 from models.npi import npi_factory
-import sys, time, math
+import sys, time, math, json, random
+import torch
 import torch.nn as nn
 import torch.optim as optim
 from tasks.task_base import TaskBase
@@ -125,6 +126,8 @@ if __name__ == "__main__":
   for i in range(data_num):
     dummy_task = DummyTask(random.randint(1, 1000), state_dim)
     data.append(dummy_task)
+  with open("./src/tasks/addition/data/train_trace_input.json", 'r') as fin:
+    trace = json.load(fin)
   
   npi = npi_factory(task=dummy_task,
                     state_dim=state_dim,
@@ -134,7 +137,8 @@ if __name__ == "__main__":
                     n_lstm_layers=2,
                     ret_threshold=0.38,
                     pkey_dim=4,
-                    args_dim=args_dim)
+                    args_dim=args_dim,
+                    n_act=2)
   print('Initializing NPI Model!')
   
   train(npi, data, trace)
