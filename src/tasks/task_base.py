@@ -17,6 +17,7 @@ class TaskBase(nn.Module, abc.ABC):
         """
         super(TaskBase, self).__init__()
         self.init_env = copy.copy(env)
+        # it is a list in default
         self.env = env
         self.state_dim = state_dim
         self.batch_size = len(env)
