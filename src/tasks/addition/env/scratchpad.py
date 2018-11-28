@@ -5,16 +5,16 @@ Core class definition for a scratchpad object => given a pair of integers to add
 the config file, builds the addition scratchpad.
 
 """
-import numpy as np
 import sys
 import time
+import torch 
 
 
 class ScratchPad():  # Addition Environment
     def __init__(self, in1, in2, rows, cols):
         # Setup Internal ScratchPad
         self.rows, self.cols = rows, cols
-        self.scratchpad = np.zeros((self.rows, self.cols), dtype=np.int8)
+        self.scratchpad = torch.zeros((self.rows, self.cols))
 
         # Initialize ScratchPad In1, In2
         self.init_scratchpad(in1, in2)
@@ -76,7 +76,7 @@ class ScratchPad():  # Addition Environment
         sys.stdout.flush()
 
     def get_env(self, rows, cols, depth):
-        env = np.zeros((rows, depth), dtype=np.int32)
+        env = torch.zeros((rows, depth))
         if self.in1_ptr[1] < -cols:
             env[0][0] = 1
         else:
