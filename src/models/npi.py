@@ -43,6 +43,11 @@ class NPI(nn.Module):
         self.prog_mem = nn.Parameter(torch.randn(n_progs, prog_dim))
 
     def forward(self, prog_id, args):
+        """
+        :param prog_id: Tesnor[seq_len, batch]
+        :param args: Tensor[seq_len, batch, args_dim]
+        :return: Tensor[seq_len, batch], Tensor[seq_len, batch, n_progs], Tensor[seq_len, batch, args_dim]
+        """
         state = self.task.f_enc(args)
         prog = self.prog_mem[prog_id]
         ret, pkey, new_args = self.core(state, prog)
@@ -51,6 +56,7 @@ class NPI(nn.Module):
         return ret, prog_id_log_probs, new_args
 
     def run(self, prog_id, args):
+        # todo: change
         self.core.reset()
         ret = 0
         stack = [(ret, prog_id, args)]
