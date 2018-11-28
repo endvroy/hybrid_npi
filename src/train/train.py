@@ -3,7 +3,6 @@ import sys, time, math, json, random, os
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.autograd import Variable
 from src.tasks.task_base import TaskBase
 
 PRETRAIN_WRIGHT_DECAY = 0.00001
