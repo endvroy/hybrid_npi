@@ -22,9 +22,9 @@ def build(in1s,
           argument_depth,
           default_argument_num,
           program_embedding_size,
-          program_size,
-          batch_size=1):
+          program_size):
     scratch_pads = []
+    batch_size = len(in1s)
     for i in range(batch_size):
         scratch_pads.append(ScratchPad(in1s[i], in2s[i], environment_row, environment_col))
     envs = [scratch_pads[i].get_env(environment_row,
