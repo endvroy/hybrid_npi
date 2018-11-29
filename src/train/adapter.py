@@ -1,16 +1,18 @@
 import json
-
+import os
 
 # element of input_trace is dict={'ret':T*B*1,'prog_id:T*B*1','args:T*B*x'}
-def trace_json_to_input(batchsize, args_dim, padding, in_file, out_file):
+def trace_json_to_input(batchsize, args_dim, padding, in_file):
+    # read traces
     with open(in_file, 'r') as fin:
         # element of traces is list=[[["prog_name",prog_id],args,ret],[...],[...]]
         traces = json.load(fin)
-
     traces_input = []
     padding_token = [0, [0] * args_dim, 1]
+    # print("len(traces):", len(traces))
     for i in range(0, len(traces), batchsize):
         if i + batchsize > len(traces):
+            # print("break:", i)
             break
         max_length = 0
         for j in range(batchsize):
@@ -20,6 +22,7 @@ def trace_json_to_input(batchsize, args_dim, padding, in_file, out_file):
         trace_input['ret'] = []
         trace_input['prog_id'] = []
         trace_input['args'] = []
+        # align traces in batch
         for l in range(max_length):
             ret_input = []
             prog_input = []
@@ -37,10 +40,8 @@ def trace_json_to_input(batchsize, args_dim, padding, in_file, out_file):
             trace_input['prog_id'].append(prog_input)
             trace_input['args'].append(args_input)
         traces_input.append(trace_input)
-
-    with open(out_file, 'w') as fout:
-        json.dump(traces_input, fout)
-
+    # print("len(trace_input)", len(traces_input))
+    return traces_input
 
 if __name__ == "__main__":
     trace_json_to_input(batchsize=2, args_dim=3, padding=True,
