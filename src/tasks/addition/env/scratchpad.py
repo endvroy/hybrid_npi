@@ -8,13 +8,13 @@ the config file, builds the addition scratchpad.
 import sys
 import time
 import torch 
-
+import numpy as np
 
 class ScratchPad():  # Addition Environment
     def __init__(self, in1, in2, rows, cols):
         # Setup Internal ScratchPad
         self.rows, self.cols = rows, cols
-        self.scratchpad = torch.zeros((self.rows, self.cols))
+        self.scratchpad = np.zeros((self.rows, self.cols),dtype=np.int32)
 
         # Initialize ScratchPad In1, In2
         self.init_scratchpad(in1, in2)
@@ -93,7 +93,7 @@ class ScratchPad():  # Addition Environment
             env[3][0] = 1
         else:
             env[3][self[self.out_ptr]] = 1
-        return env.flatten()
+        return env.view(env.numel())
 
     def execute(self, prog_id, args):
         if prog_id == 0:  # MOVE!

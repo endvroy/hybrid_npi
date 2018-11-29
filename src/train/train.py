@@ -131,7 +131,6 @@ if __name__ == "__main__":
     with open("./src/tasks/addition/data/train_trace_input.json", 'r') as fin:
         trace = json.load(fin)
         trace.append(trace[0])
-      
     npi = npi_factory(task=dummy_task,
                       state_dim=state_dim,
                       n_progs=5,

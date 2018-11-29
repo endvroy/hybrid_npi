@@ -62,7 +62,7 @@ class AdditionTask(TaskBase):
                  program_embedding_size,
                  program_size,
                  batch_size=1):
-        super(AdditionTask, self).__init__(envs, state_dim, batch_size)
+        super(AdditionTask, self).__init__(envs, state_dim)
         # config params
         self.environment_row = environment_row
         self.environment_col = environment_col
@@ -76,7 +76,8 @@ class AdditionTask(TaskBase):
         self.hidden_dim = hidden_dim
         self.state_dim = state_dim
         self.env_dim = environment_row * environment_depth  # 4 * 10 = 40
-        self.arg_dim = argument_num * argument_depth  # 3 * 10 = 30
+        # self.arg_dim = argument_num * argument_depth  # 3 * 10 = 30
+        self.arg_dim = argument_num 
         self.in_dim = self.env_dim + self.arg_dim
         self.prog_embedding_dim = program_embedding_size
         self.prog_dim = program_size
@@ -110,9 +111,21 @@ class AdditionTask(TaskBase):
         return [arg_vec.view(arg_vec.numel()) if arg_in else arg_vec]
 
     def f_enc(self, args):
-        env = [self.scratch_pads[i].get_env() for i in range(self.batch_size)]
-        env = torch.stack(env, -1)
-        merge = torch.cat([env, args], -1)
+        env = [self.scratch_pads[i].get_env(self.environment_row,
+                                     self.environment_col,
+                                     self.environment_depth) 
+                for i in range(self.batch_size)]
+        # print(env)
+        # if len(env) > 1:
+        #     env = torch.stack(env, -1)
+        # else:
+        #     env = env[0]
+        env = torch.stack(env)
+        # print([env, args])
+        # print(env.size(), args.size())
+
+        merge = torch.cat([env, args.float()],1)
+        # print(merge)
         elu = F.elu(self.fenc1(merge))
         elu = F.elu(self.fenc2(elu))
         out = self.fenc3(elu)
