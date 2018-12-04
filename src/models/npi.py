@@ -85,6 +85,10 @@ def npi_factory(task,
                 pkey_dim,  # program key dimension
                 args_dim,  # argument vector dimension
                 n_act=1):  # num of ACTs
+    if torch.cuda.is_available():
+      torch.set_default_tensor_type('torch.cuda.FloatTensor')
+    else:
+      torch.set_default_tensor_type('torch.FloatTensor')
     core = NPICore(state_dim=state_dim,
                    prog_dim=prog_dim,
                    hidden_dim=hidden_dim,

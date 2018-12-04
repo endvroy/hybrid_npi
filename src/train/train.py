@@ -14,6 +14,8 @@ class Agent(object):
         super(Agent, self).__init__()
         self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.npi = npi.to(device=self._device)
+        self.npi.core = npi.core.to(device=self._device)
+        self.npi.prog_mem = npi.prog_mem.to(device=self._device)
         list_of_params = []
         list_of_params.append({'params': self.npi.parameters()})
         self.pretrain_optimizer = optim.Adam(list_of_params, lr=PRETRAIN_LR,
@@ -46,35 +48,34 @@ def train(npi, data, traces, batchsize, epochs=10):
 
             # trace one by one
             trace = traces[i]
-            for t in range(trace['len'] - 1):
-                prog_id = torch.tensor(trace["prog_id"][t])
-                args = torch.tensor(trace["args"][t])
+            prog_id = torch.tensor(trace["prog_id"][:-1]).to(device=agent._device)
+            args = torch.tensor(trace["args"][:-1]).to(device=agent._device)
 
-                # forward
-                agent.pretrain_optimizer.zero_grad()
-                new_ret, new_prog_id_log_probs, new_args = agent.npi(prog_id, args)
+            # forward
+            agent.pretrain_optimizer.zero_grad()
+            new_ret, new_prog_id_log_probs, new_args = agent.npi(prog_id, args)
 
-                # loss
-                # new_para = torch.cat([new_ret, new_prog_id_log_probs, new_args], -1)
-                truth_ret = torch.tensor(trace["ret"][t + 1], dtype = torch.float32)
-                truth_prog_id = torch.tensor(trace["prog_id"][t + 1])
-                truth_prog_id_log_probs = torch.zeros(batchsize, agent.npi.n_progs)
-                for i in range(batchsize):
-                    truth_prog_id_log_probs[i][int(truth_prog_id[i])] = 1.0
-                truth_args = torch.tensor(trace["args"][t + 1], dtype=torch.float32)
-                # truth_para = torch.cat([truth_ret, truth_prog_id_log_probs, truth_args], -1)
+            # loss
+            # new_para = torch.cat([new_ret, new_prog_id_log_probs, new_args], -1)
+            truth_ret = torch.tensor(trace["ret"][1:], dtype = torch.float32).to(device=agent._device)
+            truth_prog_id = torch.tensor(trace["prog_id"][1:]).to(device=agent._device)
+            # truth_prog_id_log_probs = torch.zeros(batchsize, agent.npi.n_progs)
+            # for i in range(batchsize):
+            #     truth_prog_id_log_probs[i][int(truth_prog_id[i])] = 1.0
+            truth_args = torch.tensor(trace["args"][1:], dtype=torch.float32).to(device=agent._device)
+            # truth_para = torch.cat([truth_ret, truth_prog_id_log_probs, truth_args], -1)
 
-                arg_loss += agent.criterion_mse(new_args, truth_args)
-                ret_loss += agent.criterion_mse(new_ret, truth_ret)
-                prog_loss += agent.criterion_nll(new_prog_id_log_probs, truth_prog_id)
-                loss_batch = arg_loss + ret_loss + prog_loss
+            arg_loss += agent.criterion_mse(new_args, truth_args)
+            ret_loss += agent.criterion_mse(torch.squeeze(new_ret), truth_ret)
+            prog_loss += agent.criterion_nll(new_prog_id_log_probs.transpose(1,2), truth_prog_id)
+            loss_batch = arg_loss + ret_loss + prog_loss
 
-                # backpropagation
-                # if t != trace['len'] - 2:
-                #     loss_batch.backward(retain_graph=True)
-                # else:
-                loss_batch.backward(retain_graph=True)
-                agent.pretrain_optimizer.step()
+            # backpropagation
+            # if t != trace['len'] - 2:
+            #     loss_batch.backward(retain_graph=True)
+            # else:
+            loss_batch.backward(retain_graph=True)
+            agent.pretrain_optimizer.step()
               
             total_trace += trace['len'] - 1
 
@@ -90,8 +91,8 @@ def train(npi, data, traces, batchsize, epochs=10):
             best_loss = total_loss
             save_state = {
                 'epoch': ep,
-                'pkey_mem_state_dict': agent.npi.pkey_mem.state_dict(),
-                'state_dict': agent.npi.state_dict(),
+                # 'pkey_mem_state_dict': agent.npi.pkey_mem.state_dict(),
+                # 'state_dict': agent.npi.state_dict(),
                 'npi_core_state_dict': agent.npi.core.state_dict(),
                 'optimizer': agent.pretrain_optimizer.state_dict()
             }
@@ -116,7 +117,7 @@ if __name__ == "__main__":
             super(DummyTask, self).__init__(env, state_dim)
 
         def f_enc(self, args):
-            return torch.randn(args.size(0), self.state_dim)
+            return torch.randn(args.size(0), args.size(1), self.state_dim)
 
         def f_env(self, prog_id, args):
             self.env = torch.randn(prog_id.size(0), self.batch_size)
