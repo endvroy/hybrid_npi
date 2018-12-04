@@ -7,6 +7,10 @@ Embedding Information, etc.
 """
 import numpy as np
 import torch
+import os
+import sys
+real_path = os.path.split(os.path.realpath(__file__))[0]
+DATA_DIR = os.path.join(real_path, "../data")
 
 CONFIG = {
     "ENVIRONMENT_ROW": 4,         # Input 1, Input 2, Carry, Output
