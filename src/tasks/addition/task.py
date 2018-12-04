@@ -25,6 +25,10 @@ def build(in1s,
           program_size):
     scratch_pads = []
     batch_size = len(in1s)
+    if torch.cuda.is_available():
+      torch.set_default_tensor_type('torch.cuda.FloatTensor')
+    else:
+      torch.set_default_tensor_type('torch.FloatTensor')
     for i in range(batch_size):
         scratch_pads.append(ScratchPad(in1s[i], in2s[i], environment_row, environment_col))
     envs = [scratch_pads[i].get_env(environment_row,

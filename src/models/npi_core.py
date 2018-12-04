@@ -25,14 +25,17 @@ class NPICore(nn.Module):
         self.ret_fc = nn.Linear(self.hidden_dim, 1)
         self.pkey_fc = nn.Linear(self.hidden_dim, self.pkey_dim)
         self.args_fc = nn.Linear(self.hidden_dim, self.args_dim)
+        self.last_lstm_state = torch.zeros(self.n_lstm_layers, 1, self.hidden_dim), \
+                               torch.zeros(self.n_lstm_layers, 1, self.hidden_dim)
 
     def reset(self):
-        pass
+        self.last_lstm_state = torch.zeros(self.n_lstm_layers, 1, self.hidden_dim), \
+                               torch.zeros(self.n_lstm_layers, 1, self.hidden_dim)
 
     def forward(self, state, prog):
         inp = torch.cat([state, prog], -1)
         # for LSTM, out and h are the same
-        lstm_h, last_h = self.lstm(inp)
+        lstm_h, self.last_lstm_state = self.lstm(inp.unsqueeze(1), self.last_lstm_state)
         emb = F.relu(lstm_h)
         ret = self.ret_fc(emb).squeeze(1).squeeze(1)
         pkey = self.pkey_fc(emb).squeeze(1)

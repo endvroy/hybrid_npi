@@ -48,34 +48,35 @@ def train(npi, data, traces, batchsize, epochs=10):
 
             # trace one by one
             trace = traces[i]
-            prog_id = torch.tensor(trace["prog_id"][:-1]).to(device=agent._device)
-            args = torch.tensor(trace["args"][:-1]).to(device=agent._device)
-
-            # forward
-            agent.pretrain_optimizer.zero_grad()
-            new_ret, new_prog_id_log_probs, new_args = agent.npi(prog_id, args)
-
-            # loss
-            # new_para = torch.cat([new_ret, new_prog_id_log_probs, new_args], -1)
-            truth_ret = torch.tensor(trace["ret"][1:], dtype = torch.float32).to(device=agent._device)
-            truth_prog_id = torch.tensor(trace["prog_id"][1:]).to(device=agent._device)
-            # truth_prog_id_log_probs = torch.zeros(batchsize, agent.npi.n_progs)
-            # for i in range(batchsize):
-            #     truth_prog_id_log_probs[i][int(truth_prog_id[i])] = 1.0
-            truth_args = torch.tensor(trace["args"][1:], dtype=torch.float32).to(device=agent._device)
-            # truth_para = torch.cat([truth_ret, truth_prog_id_log_probs, truth_args], -1)
-
-            arg_loss += agent.criterion_mse(new_args, truth_args)
-            ret_loss += agent.criterion_mse(torch.squeeze(new_ret), truth_ret)
-            prog_loss += agent.criterion_nll(new_prog_id_log_probs.transpose(1,2), truth_prog_id)
-            loss_batch = arg_loss + ret_loss + prog_loss
-
-            # backpropagation
-            # if t != trace['len'] - 2:
-            #     loss_batch.backward(retain_graph=True)
-            # else:
-            loss_batch.backward(retain_graph=True)
-            agent.pretrain_optimizer.step()
+            for t in range(trace['len'] - 1):
+              prog_id = torch.tensor(trace["prog_id"][t]).to(device=agent._device)
+              args = torch.tensor(trace["args"][t]).to(device=agent._device)
+  
+              # forward
+              agent.pretrain_optimizer.zero_grad()
+              new_ret, new_prog_id_log_probs, new_args = agent.npi(prog_id, args)
+  
+              # loss
+              # new_para = torch.cat([new_ret, new_prog_id_log_probs, new_args], -1)
+              truth_ret = torch.tensor(trace["ret"][t+1], dtype = torch.float32).to(device=agent._device)
+              truth_prog_id = torch.tensor(trace["prog_id"][t+1]).to(device=agent._device)
+              # truth_prog_id_log_probs = torch.zeros(batchsize, agent.npi.n_progs)
+              # for i in range(batchsize):
+              #     truth_prog_id_log_probs[i][int(truth_prog_id[i])] = 1.0
+              truth_args = torch.tensor(trace["args"][t+1], dtype=torch.float32).to(device=agent._device)
+              # truth_para = torch.cat([truth_ret, truth_prog_id_log_probs, truth_args], -1)
+  
+              arg_loss += agent.criterion_mse(new_args, truth_args)
+              ret_loss += agent.criterion_mse(torch.squeeze(new_ret), truth_ret)
+              prog_loss += agent.criterion_nll(new_prog_id_log_probs, truth_prog_id)
+              loss_batch = arg_loss + ret_loss + prog_loss
+  
+              # backpropagation
+              # if t != trace['len'] - 2:
+              #     loss_batch.backward(retain_graph=True)
+              # else:
+              loss_batch.backward(retain_graph=True)
+              agent.pretrain_optimizer.step()
               
             total_trace += trace['len'] - 1
 
@@ -117,7 +118,7 @@ if __name__ == "__main__":
             super(DummyTask, self).__init__(env, state_dim)
 
         def f_enc(self, args):
-            return torch.randn(args.size(0), args.size(1), self.state_dim)
+            return torch.randn(args.size(0), self.state_dim)
 
         def f_env(self, prog_id, args):
             self.env = torch.randn(prog_id.size(0), self.batch_size)

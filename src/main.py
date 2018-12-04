@@ -58,7 +58,7 @@ for i in range(data_num):
           argument_depth = addition_config.CONFIG["ARGUMENT_DEPTH"],
           default_argument_num = addition_config.CONFIG["DEFAULT_ARG_VALUE"],
           program_embedding_size = addition_config.CONFIG["PROGRAM_EMBEDDING_SIZE"],
-          program_size = addition_config.CONFIG["PROGRAM_KEY_SIZE"]) # FIXME: typo
+          program_size = addition_config.CONFIG["PROGRAM_KEY_SIZE"])
     mytasks.append(addition_task)
     
 npi = npi_factory(task=AdditionTask,
