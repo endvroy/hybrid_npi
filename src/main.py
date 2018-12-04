@@ -17,14 +17,15 @@ torch.manual_seed(seed)
 # TODO: reorganize with argsparse
 state_dim = 2
 args_dim = addition_config.CONFIG["ARGUMENT_NUM"]
-batchsize = 2
+batchsize = 5
 
 data = []
 traces = []  # element of trace is dict={'ret':xx,'prog_id:xx','args:xx'}
 new_batch = True
 exp_id = "exp1_10"
 traces = trace_json_to_input(batchsize=batchsize, args_dim=args_dim, padding=True,
-                        in_file=os.path.join(addition_config.DATA_DIR, exp_id + '_trace.json'))
+                        in_file=os.path.join(addition_config.DATA_DIR, exp_id + '_trace.json'),
+                        out_file=os.path.join(addition_config.DATA_DIR, exp_id + '_trace_input.json'))
 print(len(traces))
 # TODO: better way to deal with interger?
 with open(os.path.join(addition_config.DATA_DIR, exp_id + '_int.json'), 'r') as fin:
@@ -75,4 +76,4 @@ print('Initializing NPI Model!')
 assert len(mytasks) <= len(traces)
 print("Data:", len(mytasks))
 print("Traces:", len(traces))
-train(npi, mytasks, traces, batchsize=2)
+train(npi, mytasks, traces, batchsize=batchsize, load_model="./model/npi_model_latest.net")

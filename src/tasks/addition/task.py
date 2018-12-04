@@ -85,6 +85,7 @@ class AdditionTask(TaskBase):
         self.in_dim = self.env_dim + self.arg_dim
         self.prog_embedding_dim = program_embedding_size
         self.prog_dim = program_size
+        self.raw_scratch_pads = copy.deepcopy(scratch_pads)
         self.scratch_pads = copy.copy(scratch_pads)
         # for f_enc
         self.fenc1 = nn.Linear(self.in_dim, self.hidden_dim)
@@ -97,6 +98,9 @@ class AdditionTask(TaskBase):
         for i in range(self.batch_size):
             self.scratch_pads[i].init_scratchpad(in1s[i], in2s[i])
 
+    def reset(self):
+        self.scratch_pads = copy.deepcopy(self.raw_scratch_pads)
+    
     def get_args(self, args, arg_in=True):
         if arg_in:
             arg_vec = torch.zeros((self.argument_num, self.argument_depth))
@@ -116,8 +120,8 @@ class AdditionTask(TaskBase):
 
     def f_enc(self, args):
         env = [self.scratch_pads[i].get_env(self.environment_row,
-                                     self.environment_col,
-                                     self.environment_depth) 
+                                            self.environment_col,
+                                            self.environment_depth)
                 for i in range(self.batch_size)]
         # print(env)
         # if len(env) > 1:
@@ -141,9 +145,9 @@ class AdditionTask(TaskBase):
 
     def f_env(self, prog_ids, args):
         for i in range(self.batch_size):
-            prog_id = prog_ids[i]
+            prog_id = int(prog_ids[i])
             if prog_id == MOVE_PID or prog_id == WRITE_PID:
-                self.scratch_pads[i].execute(prog_id, args)
+                self.scratch_pads[i].execute(prog_id, args[i].int())
         return [self.scratch_pads[i].get_env(self.environment_row,
                                              self.environment_col,
                                              self.environment_depth)
