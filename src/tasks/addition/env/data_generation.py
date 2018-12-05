@@ -8,8 +8,8 @@ called.
 """
 import json
 import numpy as np
-from tasks.addition.env.trace import Trace
-from tasks.addition.env import config as addition_config
+from trace import Trace
+import config as addition_config
 import os
 def generate_addition(prefix, data_dir, num_examples, debug=False, maximum=10000000000, debug_every=1000):
     """
@@ -39,12 +39,12 @@ def generate_addition(prefix, data_dir, num_examples, debug=False, maximum=10000
 
 
 if __name__ == '__main__':
-    num_training = 10
-    TRAINING_INT_DATA_PATH = os.path.join(addition_config.DATA_DIR, "exp1_10_int.json")
-    TRAINING_TRACE_DATA_PATH = os.path.join(addition_config.DATA_DIR, "exp1_10_trace.json")
+    num_training = 4096
+    TRAINING_INT_DATA_PATH = os.path.join(addition_config.DATA_DIR, "exp1_" + str(num_training) + "_int.json")
+    TRAINING_TRACE_DATA_PATH = os.path.join(addition_config.DATA_DIR, "exp1_" + str(num_training) + "_trace.json")
 
     # int numbers
-    generate_addition('exp1_10', addition_config.DATA_DIR, num_training, debug=True)
+    generate_addition('exp1_'+ str(num_training), addition_config.DATA_DIR, num_training, debug=True)
     with open(TRAINING_INT_DATA_PATH, 'r') as f:
         training_int_data = json.load(f)
         print(json.dumps(training_int_data, indent=4, sort_keys=True))
