@@ -42,7 +42,7 @@ class NPI(nn.Module):
         self.pkey_mem = pkey_mem
         self.prog_mem = nn.Parameter(torch.randn(n_progs, prog_dim))
 
-    def forward(self, prog_id, args):
+    def forward(self, prog_id, args, hidden):
         """
         :param prog_id: Tesnor[seq_len, batch]
         :param args: Tensor[seq_len, batch, args_dim]
@@ -50,10 +50,10 @@ class NPI(nn.Module):
         """
         state = self.task.f_enc(args)
         prog = self.prog_mem[prog_id]
-        ret, pkey, new_args = self.core(state, prog)
+        ret, pkey, new_args, last_h = self.core(state, prog, hidden)
         scores = self.pkey_mem.calc_correlation_scores(pkey)
         prog_id_log_probs = F.log_softmax(scores, dim=1)  # log softmax is more numerically stable
-        return ret, prog_id_log_probs, new_args
+        return ret, prog_id_log_probs, new_args, last_h
 
     def run(self, prog_id, args):
         # todo: change
@@ -85,6 +85,10 @@ def npi_factory(task,
                 pkey_dim,  # program key dimension
                 args_dim,  # argument vector dimension
                 n_act=1):  # num of ACTs
+    if torch.cuda.is_available():
+      torch.set_default_tensor_type('torch.cuda.FloatTensor')
+    else:
+      torch.set_default_tensor_type('torch.FloatTensor')
     core = NPICore(state_dim=state_dim,
                    prog_dim=prog_dim,
                    hidden_dim=hidden_dim,
