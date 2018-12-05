@@ -5,8 +5,8 @@ import torch.nn as nn
 import torch.optim as optim
 from tasks.task_base import TaskBase
 
-PRETRAIN_WRIGHT_DECAY = 0.00001
-PRETRAIN_LR = 0.0001
+PRETRAIN_WRIGHT_DECAY = 0.0001
+PRETRAIN_LR = 0.001
 
 
 class Agent(object):
@@ -23,7 +23,7 @@ class Agent(object):
         self.criterion_mse = nn.MSELoss()
 
 
-def train(npi, data, traces, batchsize, hidden_dim=3, n_lstm_layers=2, epochs=100, load_model=None, save_dir="./model"):
+def train(npi, data, traces, batchsize, hidden_dim=3, n_lstm_layers=2, epochs=100, load_model=None, save_dir="./model_512"):
     agent = Agent(npi)
     agent.npi.train()
     start_time = time.time()
