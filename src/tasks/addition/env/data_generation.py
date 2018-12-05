@@ -8,8 +8,8 @@ called.
 """
 import json
 import numpy as np
-from tasks.addition.env.trace import Trace
-from tasks.addition.env import config as addition_config
+from src.tasks.addition.env.trace import Trace
+from src.tasks.addition.env import config as addition_config
 import os
 def generate_addition(prefix, data_dir, num_examples, debug=False, maximum=10000000000, debug_every=1000):
     """

@@ -14,8 +14,6 @@ class Agent(object):
         super(Agent, self).__init__()
         self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.npi = npi.to(device=self._device)
-        self.npi.core = npi.core.to(device=self._device)
-        self.npi.prog_mem = npi.prog_mem.to(device=self._device)
         list_of_params = []
         list_of_params.append({'params': self.npi.parameters()})
         self.pretrain_optimizer = optim.Adam(list_of_params, lr=PRETRAIN_LR,
@@ -38,7 +36,9 @@ def train(npi, data, traces, batchsize, hidden_dim=3, n_lstm_layers=2, epochs=10
         checkpoint = torch.load(load_model)
         agent.npi.load_state_dict(checkpoint['state_dict'])
         agent.pretrain_optimizer.load_state_dict(checkpoint['optimizer'])
-        start_epoch = checkpoint['ep'] + 1
+        start_epoch = checkpoint['epoch'] + 1
+        best_loss = checkpoint['loss']
+        print("Load model. Epoch={}, Loss={}".format(start_epoch, best_loss))
     
     for ep in range(start_epoch, epochs + 1):
 
@@ -53,6 +53,7 @@ def train(npi, data, traces, batchsize, hidden_dim=3, n_lstm_layers=2, epochs=10
 
         for i in range(len(data)):
             agent.npi.task = data[i]
+            agent.npi.task.task_params = agent.npi.task_params
 
             # Setup Environment
             agent.npi.core.reset()
@@ -81,8 +82,9 @@ def train(npi, data, traces, batchsize, hidden_dim=3, n_lstm_layers=2, epochs=10
               arg_loss += agent.criterion_mse(new_args, truth_args)
               ret_loss += agent.criterion_mse(torch.squeeze(new_ret), truth_ret)
               prog_loss += agent.criterion_nll(new_prog_id_log_probs, truth_prog_id)
-              prog_id_error += ((new_prog_id - truth_prog_id) ** 2).sum()/batchsize
+              prog_id_error += float(((new_prog_id - truth_prog_id) ** 2).sum()) / batchsize
               loss_batch = arg_loss + ret_loss + prog_loss
+              total_loss += loss_batch
   
               # backpropagation
               loss_batch.backward(retain_graph=True)
@@ -90,22 +92,27 @@ def train(npi, data, traces, batchsize, hidden_dim=3, n_lstm_layers=2, epochs=10
               
             total_trace += trace['len'] - 1
 
+        # print result
         arg_loss /= total_trace
         ret_loss /= total_trace
         prog_loss /= total_trace
         prog_id_error /= total_trace
         end_time = time.time()
-        print("Epoch {}: Ret error {}, Arg_error {}, Prog_error {}, Prog_id_error {}, Time {}"
-              .format(ep, ret_loss, arg_loss, prog_loss, prog_id_error, end_time - start_time))
+        print("Epoch {}: Ret err {}, Arg err {}, Prog err {}, Prog_id err {}, T {}s"
+              .format(ep,
+                      round(float(ret_loss), 4),
+                      round(float(arg_loss), 4),
+                      round(float(prog_loss), 4),
+                      round(float(prog_id_error), 4),
+                      round((end_time - start_time), 4)))
 
         # save model
         if total_loss < best_loss:
             best_loss = total_loss
             save_state = {
                 'epoch': ep,
-                # 'pkey_mem_state_dict': agent.npi.pkey_mem.state_dict(),
+                'loss': best_loss,
                 'state_dict': agent.npi.state_dict(),
-                # 'npi_core_state_dict': agent.npi.core.state_dict(),
                 'optimizer': agent.pretrain_optimizer.state_dict()
             }
             if not os.path.isdir("./model"):
