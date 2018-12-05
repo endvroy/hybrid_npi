@@ -1,9 +1,9 @@
-from src.models.npi import npi_factory
+from models.npi import npi_factory
 import sys, time, math, json, random, os
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from src.tasks.task_base import TaskBase
+from tasks.task_base import TaskBase
 
 PRETRAIN_WRIGHT_DECAY = 0.00001
 PRETRAIN_LR = 0.0001
@@ -25,7 +25,7 @@ class Agent(object):
         self.criterion_mse = nn.MSELoss()
 
 
-def train(npi, data, traces, batchsize, epochs=10):
+def train(npi, data, traces, batchsize, epochs=30):
     agent = Agent(npi)
     agent.npi.train()
     start_time = time.time()
