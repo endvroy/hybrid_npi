@@ -1,12 +1,12 @@
-from src.models.npi import npi_factory
+from models.npi import npi_factory
 import sys, time, math, json, random, os
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from src.tasks.task_base import TaskBase
+from tasks.task_base import TaskBase
 
-PRETRAIN_WRIGHT_DECAY = 0.00001
-PRETRAIN_LR = 0.0001
+PRETRAIN_WRIGHT_DECAY = 0.0001
+PRETRAIN_LR = 0.001
 
 
 class Agent(object):
@@ -14,8 +14,6 @@ class Agent(object):
         super(Agent, self).__init__()
         self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.npi = npi.to(device=self._device)
-        self.npi.core = npi.core.to(device=self._device)
-        self.npi.prog_mem = npi.prog_mem.to(device=self._device)
         list_of_params = []
         list_of_params.append({'params': self.npi.parameters()})
         self.pretrain_optimizer = optim.Adam(list_of_params, lr=PRETRAIN_LR,
@@ -25,13 +23,24 @@ class Agent(object):
         self.criterion_mse = nn.MSELoss()
 
 
-def train(npi, data, traces, batchsize, epochs=10):
+def train(npi, data, traces, batchsize, hidden_dim=3, n_lstm_layers=2, epochs=100, load_model=None, save_dir="./model_512"):
     agent = Agent(npi)
     agent.npi.train()
     start_time = time.time()
 
     best_loss = math.inf
-    for ep in range(1, epochs + 1):
+    start_epoch = 1
+    
+    # load
+    if load_model != None:
+        checkpoint = torch.load(load_model)
+        agent.npi.load_state_dict(checkpoint['state_dict'])
+        agent.pretrain_optimizer.load_state_dict(checkpoint['optimizer'])
+        start_epoch = checkpoint['epoch'] + 1
+        best_loss = checkpoint['loss']
+        print("Load model. Epoch={}, Loss={}".format(start_epoch, best_loss))
+    
+    for ep in range(start_epoch, epochs + 1):
 
         # parameters
         total_loss = 0
@@ -39,67 +48,76 @@ def train(npi, data, traces, batchsize, epochs=10):
         arg_loss = 0
         prog_loss = 0
         ret_loss = 0
+        prog_id_error = 0
+        
 
         for i in range(len(data)):
             agent.npi.task = data[i]
+            agent.npi.task.task_params = agent.npi.task_params
 
             # Setup Environment
             agent.npi.core.reset()
+            agent.npi.task.reset()
 
             # trace one by one
             trace = traces[i]
+            hidden = torch.zeros(n_lstm_layers, 1, hidden_dim), \
+                     torch.zeros(n_lstm_layers, 1, hidden_dim)
             for t in range(trace['len'] - 1):
               prog_id = torch.tensor(trace["prog_id"][t]).to(device=agent._device)
               args = torch.tensor(trace["args"][t]).to(device=agent._device)
   
               # forward
               agent.pretrain_optimizer.zero_grad()
-              new_ret, new_prog_id_log_probs, new_args = agent.npi(prog_id, args)
-  
-              # loss
-              # new_para = torch.cat([new_ret, new_prog_id_log_probs, new_args], -1)
+              new_ret, new_prog_id_log_probs, new_args, hidden = agent.npi(prog_id, args, hidden)
+              new_prog_id = torch.argmax(new_prog_id_log_probs, dim=1)
+
+              # update env
               truth_ret = torch.tensor(trace["ret"][t+1], dtype = torch.float32).to(device=agent._device)
               truth_prog_id = torch.tensor(trace["prog_id"][t+1]).to(device=agent._device)
-              # truth_prog_id_log_probs = torch.zeros(batchsize, agent.npi.n_progs)
-              # for i in range(batchsize):
-              #     truth_prog_id_log_probs[i][int(truth_prog_id[i])] = 1.0
               truth_args = torch.tensor(trace["args"][t+1], dtype=torch.float32).to(device=agent._device)
-              # truth_para = torch.cat([truth_ret, truth_prog_id_log_probs, truth_args], -1)
-  
+              agent.npi.task.f_env(truth_prog_id, truth_args)
+
+              # loss
               arg_loss += agent.criterion_mse(new_args, truth_args)
               ret_loss += agent.criterion_mse(torch.squeeze(new_ret), truth_ret)
               prog_loss += agent.criterion_nll(new_prog_id_log_probs, truth_prog_id)
+              prog_id_error += float(((new_prog_id - truth_prog_id) ** 2).sum()) / batchsize
               loss_batch = arg_loss + ret_loss + prog_loss
+              total_loss += loss_batch
   
               # backpropagation
-              # if t != trace['len'] - 2:
-              #     loss_batch.backward(retain_graph=True)
-              # else:
               loss_batch.backward(retain_graph=True)
               agent.pretrain_optimizer.step()
               
             total_trace += trace['len'] - 1
 
+        # print result
         arg_loss /= total_trace
         ret_loss /= total_trace
         prog_loss /= total_trace
+        prog_id_error /= total_trace
         end_time = time.time()
-        print("Epoch {}: Ret error {}, Arg_error {}, Prog_error {}, Time {}"
-              .format(ep, ret_loss, arg_loss, prog_loss, end_time - start_time))
+        print("Epoch {}: Ret err {}, Arg err {}, Prog err {}, Prog_id err {}, T {}s"
+              .format(ep,
+                      round(float(ret_loss), 4),
+                      round(float(arg_loss), 4),
+                      round(float(prog_loss), 4),
+                      round(float(prog_id_error), 4),
+                      round((end_time - start_time), 4)))
 
         # save model
         if total_loss < best_loss:
             best_loss = total_loss
             save_state = {
                 'epoch': ep,
-                # 'pkey_mem_state_dict': agent.npi.pkey_mem.state_dict(),
-                # 'state_dict': agent.npi.state_dict(),
-                'npi_core_state_dict': agent.npi.core.state_dict(),
+                'loss': best_loss,
+                'state_dict': agent.npi.state_dict(),
                 'optimizer': agent.pretrain_optimizer.state_dict()
             }
-            if not os.path.isdir("./model"):
-                os.mkdir("./model")
-            torch.save(save_state, 'model/npi_model_latest.net')
+            if not os.path.isdir(save_dir):
+                os.mkdir(save_dir)
+            torch.save(save_state, save_dir + '/npi_model_latest.net')
 
 
 if __name__ == "__main__":

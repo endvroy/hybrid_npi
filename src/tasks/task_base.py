@@ -22,8 +22,12 @@ class TaskBase(nn.Module, abc.ABC):
         self.state_dim = state_dim
         self.batch_size = len(env)
 
+    @abc.abstractmethod
     def reset(self):
-        self.env = copy.copy(self.init_env)
+        """
+        reset env
+        :return:
+        """
 
     @abc.abstractmethod
     def f_enc(self, args):
