@@ -1,12 +1,12 @@
-from src.models.npi import npi_factory
+from models.npi import npi_factory
 import sys, time, math, json, random, os
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from src.tasks.task_base import TaskBase
+from tasks.task_base import TaskBase
 
-PRETRAIN_WRIGHT_DECAY = 0.00001
-PRETRAIN_LR = 0.0001
+PRETRAIN_WRIGHT_DECAY = 0.0001
+PRETRAIN_LR = 0.001
 
 
 class Agent(object):
@@ -14,8 +14,6 @@ class Agent(object):
         super(Agent, self).__init__()
         self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.npi = npi.to(device=self._device)
-        self.npi.core = npi.core.to(device=self._device)
-        self.npi.prog_mem = npi.prog_mem.to(device=self._device)
         list_of_params = []
         list_of_params.append({'params': self.npi.parameters()})
         self.pretrain_optimizer = optim.Adam(list_of_params, lr=PRETRAIN_LR,
@@ -25,8 +23,52 @@ class Agent(object):
         self.criterion_mse = nn.MSELoss()
 
 
-def train(npi, data, traces, batchsize, hidden_dim=3, n_lstm_layers=2, epochs=10, load_model=None):
+def eval(agent, data, traces, hidden_dim, n_lstm_layers):
+    with torch.no_grad():
+        agent.npi.eval()
+        total_loss = 0
+    
+        for i in range(len(data)):
+            agent.npi.task = data[i]
+            agent.npi.task.task_params = agent.npi.task_params
+        
+            # Setup Environment
+            agent.npi.core.reset()
+            agent.npi.task.reset()
+            
+            # trace one by one
+            trace = traces[i]
+            hidden = torch.zeros(n_lstm_layers, 1, hidden_dim), \
+                     torch.zeros(n_lstm_layers, 1, hidden_dim)
+            for t in range(trace['len'] - 1):
+                prog_id = torch.tensor(trace["prog_id"][t]).to(device=agent._device)
+                args = torch.tensor(trace["args"][t]).to(device=agent._device)
+          
+                # forward
+                new_ret, new_prog_id_log_probs, new_args, hidden = agent.npi(prog_id, args, hidden)
+          
+                # update env
+                truth_ret = torch.tensor(trace["ret"][t + 1], dtype=torch.float32).to(device=agent._device)
+                truth_prog_id = torch.tensor(trace["prog_id"][t + 1]).to(device=agent._device)
+                truth_args = torch.tensor(trace["args"][t + 1], dtype=torch.float32).to(device=agent._device)
+                agent.npi.task.f_env(truth_prog_id, truth_args)
+          
+                # loss
+                total_loss += (agent.criterion_mse(new_args, truth_args)
+                               + agent.criterion_mse(torch.squeeze(new_ret), truth_ret)
+                               + agent.criterion_nll(new_prog_id_log_probs, truth_prog_id))
+        agent.npi.train()
+        return total_loss
+
+
+def train(npi, data, traces, hidden_dim=3,
+          n_lstm_layers=2, epochs=100, train_ratio=0.8,
+          load_model=None, save_dir="./model_512"):
     agent = Agent(npi)
+    train_data = data[0:int(train_ratio*len(data))]
+    eval_data = data[int(train_ratio*len(data)):]
+    train_traces = traces[0:int(train_ratio*len(data))]
+    eval_traces = traces[int(train_ratio*len(data)):]
     agent.npi.train()
     start_time = time.time()
 
@@ -38,12 +80,13 @@ def train(npi, data, traces, batchsize, hidden_dim=3, n_lstm_layers=2, epochs=10
         checkpoint = torch.load(load_model)
         agent.npi.load_state_dict(checkpoint['state_dict'])
         agent.pretrain_optimizer.load_state_dict(checkpoint['optimizer'])
-        start_epoch = checkpoint['ep'] + 1
+        start_epoch = checkpoint['epoch'] + 1
+        best_loss = checkpoint['loss']
+        print("Load model. Epoch={}, Loss={}".format(start_epoch, best_loss))
     
     for ep in range(start_epoch, epochs + 1):
 
         # parameters
-        total_loss = 0
         total_trace = 0
         arg_loss = 0
         prog_loss = 0
@@ -51,66 +94,77 @@ def train(npi, data, traces, batchsize, hidden_dim=3, n_lstm_layers=2, epochs=10
         prog_id_error = 0
         
 
-        for i in range(len(data)):
-            agent.npi.task = data[i]
+        for i in range(len(train_data)):
+            agent.npi.task = train_data[i]
+            agent.npi.task.task_params = agent.npi.task_params
 
             # Setup Environment
             agent.npi.core.reset()
             agent.npi.task.reset()
 
             # trace one by one
-            trace = traces[i]
+            trace = train_traces[i]
             hidden = torch.zeros(n_lstm_layers, 1, hidden_dim), \
                      torch.zeros(n_lstm_layers, 1, hidden_dim)
             for t in range(trace['len'] - 1):
-              prog_id = torch.tensor(trace["prog_id"][t]).to(device=agent._device)
-              args = torch.tensor(trace["args"][t]).to(device=agent._device)
+                prog_id = torch.tensor(trace["prog_id"][t]).to(device=agent._device)
+                args = torch.tensor(trace["args"][t]).to(device=agent._device)
+    
+                # forward
+                agent.pretrain_optimizer.zero_grad()
+                new_ret, new_prog_id_log_probs, new_args, hidden = agent.npi(prog_id, args, hidden)
+                new_prog_id = torch.argmax(new_prog_id_log_probs, dim=1)
   
-              # forward
-              agent.pretrain_optimizer.zero_grad()
-              new_ret, new_prog_id_log_probs, new_args, hidden = agent.npi(prog_id, args, hidden)
-              new_prog_id = torch.argmax(new_prog_id_log_probs, dim=1)
-
-              # update env
-              truth_ret = torch.tensor(trace["ret"][t+1], dtype = torch.float32).to(device=agent._device)
-              truth_prog_id = torch.tensor(trace["prog_id"][t+1]).to(device=agent._device)
-              truth_args = torch.tensor(trace["args"][t+1], dtype=torch.float32).to(device=agent._device)
-              agent.npi.task.f_env(truth_prog_id, truth_args)
-
-              # loss
-              arg_loss += agent.criterion_mse(new_args, truth_args)
-              ret_loss += agent.criterion_mse(torch.squeeze(new_ret), truth_ret)
-              prog_loss += agent.criterion_nll(new_prog_id_log_probs, truth_prog_id)
-              prog_id_error += ((new_prog_id - truth_prog_id) ** 2).sum()/batchsize
-              loss_batch = arg_loss + ret_loss + prog_loss
+                # update env
+                truth_ret = torch.tensor(trace["ret"][t+1], dtype = torch.float32).to(device=agent._device)
+                truth_prog_id = torch.tensor(trace["prog_id"][t+1]).to(device=agent._device)
+                truth_args = torch.tensor(trace["args"][t+1], dtype=torch.float32).to(device=agent._device)
+                agent.npi.task.f_env(truth_prog_id, truth_args)
   
-              # backpropagation
-              loss_batch.backward(retain_graph=True)
-              agent.pretrain_optimizer.step()
+                # loss
+                arg_loss_now = agent.criterion_mse(new_args, truth_args)
+                ret_loss_now = agent.criterion_mse(torch.squeeze(new_ret), truth_ret)
+                prog_loss_now = agent.criterion_nll(new_prog_id_log_probs, truth_prog_id)
+                prog_id_error += float(((new_prog_id - truth_prog_id) ** 2).sum()) / len(new_prog_id)
+                loss_batch = arg_loss_now + ret_loss_now + prog_loss_now
+                arg_loss += arg_loss_now
+                ret_loss += ret_loss_now
+                prog_loss += prog_loss_now
+  
+                # backpropagation
+                loss_batch.backward(retain_graph=True)
+                agent.pretrain_optimizer.step()
               
             total_trace += trace['len'] - 1
 
+        # print result
+        total_loss = eval(agent, eval_data, eval_traces, hidden_dim, n_lstm_layers)
         arg_loss /= total_trace
         ret_loss /= total_trace
         prog_loss /= total_trace
         prog_id_error /= total_trace
         end_time = time.time()
-        print("Epoch {}: Ret error {}, Arg_error {}, Prog_error {}, Prog_id_error {}, Time {}"
-              .format(ep, ret_loss, arg_loss, prog_loss, prog_id_error, end_time - start_time))
+        print("Epoch {}: Ret err {}, Arg err {}, Prog err {}, Prog_id err {}, Tot loss {}, T {}s"
+              .format(ep,
+                      round(float(ret_loss), 4),
+                      round(float(arg_loss), 4),
+                      round(float(prog_loss), 4),
+                      round(float(prog_id_error), 4),
+                      round(float(total_loss), 4),
+                      round((end_time - start_time), 4)))
 
         # save model
         if total_loss < best_loss:
             best_loss = total_loss
             save_state = {
                 'epoch': ep,
-                # 'pkey_mem_state_dict': agent.npi.pkey_mem.state_dict(),
+                'loss': best_loss,
                 'state_dict': agent.npi.state_dict(),
-                # 'npi_core_state_dict': agent.npi.core.state_dict(),
                 'optimizer': agent.pretrain_optimizer.state_dict()
             }
-            if not os.path.isdir("./model"):
-                os.mkdir("./model")
-            torch.save(save_state, 'model/npi_model_latest.net')
+            if not os.path.isdir(save_dir):
+                os.mkdir(save_dir)
+            torch.save(save_state, save_dir + '/npi_model_latest.net')
 
 
 if __name__ == "__main__":
@@ -156,7 +210,7 @@ if __name__ == "__main__":
                       n_act=2)
     print('Initializing NPI Model!')
 
-    assert len(data) <= len(trace)
+    assert len(data) == len(trace)
     print("Data:", len(data))
     print("Traces:", len(trace))
-    train(npi, data, trace, batchsize=2)
+    train(npi, data, trace)

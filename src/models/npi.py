@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
-from src.models.npi_core import NPICore
+from models.npi_core import NPICore
 
 
 class PKeyMem(nn.Module):
@@ -29,6 +29,7 @@ class NPI(nn.Module):
     def __init__(self,
                  core,
                  task,
+                 task_params,
                  pkey_mem,
                  ret_threshold,
                  n_progs,
@@ -36,6 +37,7 @@ class NPI(nn.Module):
         super(NPI, self).__init__()
         self.core = core
         self.task = task
+        self.task_params = task_params
         self.ret_threshold = ret_threshold
         self.n_progs = n_progs
         self.prog_dim = prog_dim
@@ -76,6 +78,7 @@ class NPI(nn.Module):
 
 
 def npi_factory(task,
+                task_params,
                 state_dim,  # state tensor dimension
                 n_progs,  # number of programs
                 prog_dim,  # program embedding dimension
@@ -102,6 +105,7 @@ def npi_factory(task,
 
     model = NPI(core=core,
                 task=task,
+                task_params=task_params,
                 pkey_mem=pkey_mem,
                 ret_threshold=ret_threshold,
                 n_progs=n_progs,
