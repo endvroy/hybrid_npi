@@ -22,7 +22,7 @@ batchsize = 64
 data = []
 traces = []  # element of trace is dict={'ret':xx,'prog_id:xx','args:xx'}
 new_batch = True
-exp_id = "exp1_512"
+exp_id = "exp1_640"
 traces = trace_json_to_input(batchsize=batchsize, args_dim=args_dim, padding=True,
                         in_file=os.path.join(addition_config.DATA_DIR, exp_id + '_trace.json'),
                         out_file=os.path.join(addition_config.DATA_DIR, exp_id + '_trace_input.json'))
