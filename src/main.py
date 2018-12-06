@@ -22,7 +22,7 @@ batchsize = 64
 data = []
 traces = []  # element of trace is dict={'ret':xx,'prog_id:xx','args:xx'}
 new_batch = True
-exp_id = "exp1_640"
+exp_id = "exp1_512"
 traces = trace_json_to_input(batchsize=batchsize, args_dim=args_dim, padding=True,
                         in_file=os.path.join(addition_config.DATA_DIR, exp_id + '_trace.json'),
                         out_file=os.path.join(addition_config.DATA_DIR, exp_id + '_trace_input.json'))
@@ -92,4 +92,4 @@ print('Initializing NPI Model!')
 assert len(mytasks) <= len(traces)
 print("Data:", len(mytasks))
 print("Traces:", len(traces))
-train(npi, mytasks, traces, load_model='./model_512/npi_model_latest.net')
+train(npi, mytasks, traces, epochs=200, save_dir='./model_512', load_model='./model_512/npi_model_latest.net')

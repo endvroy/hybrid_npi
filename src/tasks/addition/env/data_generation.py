@@ -39,7 +39,7 @@ def generate_addition(prefix, data_dir, num_examples, debug=False, maximum=10000
 
 
 if __name__ == '__main__':
-    num_training = 640
+    num_training = 12800
     TRAINING_INT_DATA_PATH = os.path.join(addition_config.DATA_DIR, "exp1_" + str(num_training) + "_int.json")
     TRAINING_TRACE_DATA_PATH = os.path.join(addition_config.DATA_DIR, "exp1_" + str(num_training) + "_trace.json")
 

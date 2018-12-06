@@ -6,7 +6,7 @@ import torch.optim as optim
 from tasks.task_base import TaskBase
 
 PRETRAIN_WRIGHT_DECAY = 0.0001
-PRETRAIN_LR = 0.001
+PRETRAIN_LR = 0.01
 
 
 class Agent(object):
@@ -61,6 +61,41 @@ def eval(agent, data, traces, hidden_dim, n_lstm_layers):
         return total_loss
 
 
+def test(agent, data, hidden_dim, n_lstm_layers):
+    with torch.no_grad():
+        agent.npi.eval()
+        total_loss = 0
+    
+        for i in range(len(data)):
+            agent.npi.task = data[i]
+            agent.npi.task.task_params = agent.npi.task_params
+        
+            # Setup Environment
+            agent.npi.core.reset()
+            agent.npi.task.reset()
+            
+            # no trace
+            hidden = torch.zeros(n_lstm_layers, 1, hidden_dim), \
+                     torch.zeros(n_lstm_layers, 1, hidden_dim)
+            new_ret = torch.zeros(agent.npi.task.batch_size).to(device=agent._device)
+            new_prog_id = torch.zeros(agent.npi.task.batch_size, dtype=torch.int64).to(device=agent._device)
+            new_args = torch.zeros(agent.npi.task.batch_size, agent.npi.core.args_dim).to(device=agent._device)
+            
+            while max(new_ret) < agent.npi.ret_threshold:
+                # forward
+                new_ret, new_prog_id_log_probs, new_args, hidden = agent.npi(new_prog_id, new_args, hidden)
+                new_prog_id = torch.argmax(new_prog_id_log_probs, dim=1)
+
+                # update env
+                print('Ret:', new_ret[0], ' prog id:', new_prog_id[0], ' Args:', new_args[0])
+                agent.npi.task.f_env(new_prog_id, new_args)
+            
+            print(new_ret)
+            agent.npi.task.scratch_pads[int(torch.argmax(new_ret))].pretty_print()
+        agent.npi.train()
+        return total_loss
+
+
 def train(npi, data, traces, hidden_dim=3,
           n_lstm_layers=2, epochs=100, train_ratio=0.8,
           load_model=None, save_dir="./model_512"):
@@ -93,6 +128,7 @@ def train(npi, data, traces, hidden_dim=3,
         ret_loss = 0
         prog_id_error = 0
         
+        test(agent, eval_data, hidden_dim, n_lstm_layers)
 
         for i in range(len(train_data)):
             agent.npi.task = train_data[i]
