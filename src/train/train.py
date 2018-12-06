@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from tasks.task_base import TaskBase
+from tasks.addition.env import config
 
 PRETRAIN_WRIGHT_DECAY = 0.0001
 PRETRAIN_LR = 0.01
@@ -18,12 +19,12 @@ class Agent(object):
         list_of_params.append({'params': self.npi.parameters()})
         self.pretrain_optimizer = optim.Adam(list_of_params, lr=PRETRAIN_LR,
                                              weight_decay=PRETRAIN_WRIGHT_DECAY)
-        self.criterion_nll = nn.NLLLoss()
-        self.criterion_binary = nn.BCELoss()
+        self.criterion_nll = nn.NLLLoss(ignore_index=config.PADDING['prog_id'])
+        self.criterion_cross = nn.CrossEntropyLoss(ignore_index=config.PADDING['ret'])
         self.criterion_mse = nn.MSELoss()
 
 
-def eval(agent, data, traces, hidden_dim, n_lstm_layers):
+def eval(agent, data, traces):
     with torch.no_grad():
         agent.npi.eval()
         total_loss = 0
@@ -38,8 +39,8 @@ def eval(agent, data, traces, hidden_dim, n_lstm_layers):
             
             # trace one by one
             trace = traces[i]
-            hidden = torch.zeros(n_lstm_layers, 1, hidden_dim), \
-                     torch.zeros(n_lstm_layers, 1, hidden_dim)
+            hidden = torch.zeros(agent.npi.core.n_lstm_layers, 1, agent.npi.core.hidden_dim), \
+                     torch.zeros(agent.npi.core.n_lstm_layers, 1, agent.npi.core.hidden_dim)
             for t in range(trace['len'] - 1):
                 prog_id = torch.tensor(trace["prog_id"][t]).to(device=agent._device)
                 args = torch.tensor(trace["args"][t]).to(device=agent._device)
@@ -48,20 +49,20 @@ def eval(agent, data, traces, hidden_dim, n_lstm_layers):
                 new_ret, new_prog_id_log_probs, new_args, hidden = agent.npi(prog_id, args, hidden)
           
                 # update env
-                truth_ret = torch.tensor(trace["ret"][t + 1], dtype=torch.float32).to(device=agent._device)
-                truth_prog_id = torch.tensor(trace["prog_id"][t + 1]).to(device=agent._device)
+                truth_ret = torch.tensor(trace["ret"][t + 1], dtype=torch.int64).to(device=agent._device)
+                truth_prog_id = torch.tensor(trace["prog_id"][t + 1], dtype=torch.int64).to(device=agent._device)
                 truth_args = torch.tensor(trace["args"][t + 1], dtype=torch.float32).to(device=agent._device)
                 agent.npi.task.f_env(truth_prog_id, truth_args)
           
                 # loss
                 total_loss += (agent.criterion_mse(new_args, truth_args)
-                               + agent.criterion_mse(torch.squeeze(new_ret), truth_ret)
+                               + agent.criterion_cross(new_ret, truth_ret)
                                + agent.criterion_nll(new_prog_id_log_probs, truth_prog_id))
         agent.npi.train()
         return total_loss
 
 
-def test(agent, data, hidden_dim, n_lstm_layers):
+def test(agent, data):
     with torch.no_grad():
         agent.npi.eval()
         total_loss = 0
@@ -71,17 +72,16 @@ def test(agent, data, hidden_dim, n_lstm_layers):
             agent.npi.task.task_params = agent.npi.task_params
         
             # Setup Environment
-            agent.npi.core.reset()
             agent.npi.task.reset()
             
             # no trace
-            hidden = torch.zeros(n_lstm_layers, 1, hidden_dim), \
-                     torch.zeros(n_lstm_layers, 1, hidden_dim)
-            new_ret = torch.zeros(agent.npi.task.batch_size).to(device=agent._device)
-            new_prog_id = torch.zeros(agent.npi.task.batch_size, dtype=torch.int64).to(device=agent._device)
+            hidden = torch.zeros(agent.npi.core.n_lstm_layers, 1, agent.npi.core.hidden_dim), \
+                     torch.zeros(agent.npi.core.n_lstm_layers, 1, agent.npi.core.hidden_dim)
+            new_ret = torch.zeros(agent.npi.task.batch_size, 2).to(device=agent._device)
+            new_prog_id = torch.ones(agent.npi.task.batch_size, dtype=torch.int64).to(device=agent._device) * 2
             new_args = torch.zeros(agent.npi.task.batch_size, agent.npi.core.args_dim).to(device=agent._device)
             
-            while max(new_ret) < agent.npi.ret_threshold:
+            while max(torch.argmax(new_ret, dim=1)) == 0:
                 # forward
                 new_ret, new_prog_id_log_probs, new_args, hidden = agent.npi(new_prog_id, new_args, hidden)
                 new_prog_id = torch.argmax(new_prog_id_log_probs, dim=1)
@@ -90,14 +90,13 @@ def test(agent, data, hidden_dim, n_lstm_layers):
                 print('Ret:', new_ret[0], ' prog id:', new_prog_id[0], ' Args:', new_args[0])
                 agent.npi.task.f_env(new_prog_id, new_args)
             
-            print(new_ret)
-            agent.npi.task.scratch_pads[int(torch.argmax(new_ret))].pretty_print()
+            print(torch.argmax(new_ret, dim=1))
+            agent.npi.task.scratch_pads[int(torch.argmax(torch.argmax(new_ret, dim=1)))].pretty_print()
         agent.npi.train()
         return total_loss
 
 
-def train(npi, data, traces, hidden_dim=3,
-          n_lstm_layers=2, epochs=100, train_ratio=0.8,
+def train(npi, data, traces, epochs=100, train_ratio=0.9,
           load_model=None, save_dir="./model_512"):
     agent = Agent(npi)
     train_data = data[0:int(train_ratio*len(data))]
@@ -128,7 +127,7 @@ def train(npi, data, traces, hidden_dim=3,
         ret_loss = 0
         prog_id_error = 0
         
-        test(agent, eval_data, hidden_dim, n_lstm_layers)
+        # test(agent, eval_data)
 
         for i in range(len(train_data)):
             agent.npi.task = train_data[i]
@@ -140,8 +139,8 @@ def train(npi, data, traces, hidden_dim=3,
 
             # trace one by one
             trace = train_traces[i]
-            hidden = torch.zeros(n_lstm_layers, 1, hidden_dim), \
-                     torch.zeros(n_lstm_layers, 1, hidden_dim)
+            hidden = torch.zeros(agent.npi.core.n_lstm_layers, 1, agent.npi.core.hidden_dim), \
+                     torch.zeros(agent.npi.core.n_lstm_layers, 1, agent.npi.core.hidden_dim)
             for t in range(trace['len'] - 1):
                 prog_id = torch.tensor(trace["prog_id"][t]).to(device=agent._device)
                 args = torch.tensor(trace["args"][t]).to(device=agent._device)
@@ -152,14 +151,14 @@ def train(npi, data, traces, hidden_dim=3,
                 new_prog_id = torch.argmax(new_prog_id_log_probs, dim=1)
   
                 # update env
-                truth_ret = torch.tensor(trace["ret"][t+1], dtype = torch.float32).to(device=agent._device)
-                truth_prog_id = torch.tensor(trace["prog_id"][t+1]).to(device=agent._device)
+                truth_ret = torch.tensor(trace["ret"][t+1], dtype=torch.int64).to(device=agent._device)
+                truth_prog_id = torch.tensor(trace["prog_id"][t+1], dtype=torch.int64).to(device=agent._device)
                 truth_args = torch.tensor(trace["args"][t+1], dtype=torch.float32).to(device=agent._device)
                 agent.npi.task.f_env(truth_prog_id, truth_args)
   
                 # loss
                 arg_loss_now = agent.criterion_mse(new_args, truth_args)
-                ret_loss_now = agent.criterion_mse(torch.squeeze(new_ret), truth_ret)
+                ret_loss_now = agent.criterion_cross(new_ret, truth_ret)
                 prog_loss_now = agent.criterion_nll(new_prog_id_log_probs, truth_prog_id)
                 prog_id_error += float(((new_prog_id - truth_prog_id) ** 2).sum()) / len(new_prog_id)
                 loss_batch = arg_loss_now + ret_loss_now + prog_loss_now
@@ -174,7 +173,7 @@ def train(npi, data, traces, hidden_dim=3,
             total_trace += trace['len'] - 1
 
         # print result
-        total_loss = eval(agent, eval_data, eval_traces, hidden_dim, n_lstm_layers)
+        total_loss = eval(agent, eval_data, eval_traces)
         arg_loss /= total_trace
         ret_loss /= total_trace
         prog_loss /= total_trace
@@ -240,7 +239,7 @@ if __name__ == "__main__":
                       prog_dim=5,
                       hidden_dim=3,
                       n_lstm_layers=2,
-                      ret_threshold=0.38,
+                      ret_threshold=0.5,
                       pkey_dim=4,
                       args_dim=args_dim,
                       n_act=2)

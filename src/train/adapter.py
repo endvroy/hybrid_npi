@@ -1,5 +1,6 @@
 import json
 import os
+from tasks.addition.env import config
 
 # element of input_trace is dict={'ret':T*B*1,'prog_id:T*B*1','args:T*B*x'}
 def trace_json_to_input(batchsize, args_dim, padding, in_file, out_file):
@@ -8,7 +9,7 @@ def trace_json_to_input(batchsize, args_dim, padding, in_file, out_file):
         # element of traces is list=[[["prog_name",prog_id],args,ret],[...],[...]]
         traces = json.load(fin)
     traces_input = []
-    padding_token = [0, [0] * args_dim, 1]
+    padding_input = config.PADDING
     # print("len(traces):", len(traces))
     for i in range(0, len(traces), batchsize):
         if i + batchsize > len(traces):
@@ -23,15 +24,15 @@ def trace_json_to_input(batchsize, args_dim, padding, in_file, out_file):
         trace_input['prog_id'] = []
         trace_input['args'] = []
         # align traces in batch
-        for l in range(-1, max_length):
+        for l in range(0, max_length):
             ret_input = []
             prog_input = []
             args_input = []
             for j in range(batchsize):
-                if len(traces[i + j]) <= l or l == -1:
-                    ret_input.append(padding_token[2])
-                    prog_input.append(padding_token[0])
-                    args_input.append(padding_token[1])
+                if len(traces[i + j]) <= l:
+                    ret_input.append(padding_input['ret'])
+                    prog_input.append(padding_input['prog_id'])
+                    args_input.append(padding_input['args'])
                 else:
                     ret_input.append(1 if traces[i + j][l][2] == True else 0)
                     prog_input.append(traces[i + j][l][0][1])
@@ -47,5 +48,5 @@ def trace_json_to_input(batchsize, args_dim, padding, in_file, out_file):
 
 if __name__ == "__main__":
     trace_json_to_input(batchsize=2, args_dim=2, padding=True,
-                        in_file="./src/tasks/addition/data/train_trace.json",
-                        out_file="./src/tasks/addition/data/train_trace_input.json")
+                        in_file="./src/tasks/addition/data/exp1_10_trace.json",
+                        out_file="./src/tasks/addition/data/exp1_10_trace_input.json")

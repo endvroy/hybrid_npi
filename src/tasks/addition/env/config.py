@@ -36,6 +36,7 @@ PROGRAM_SET = [
 ]
 
 PROGRAM_ID = {x[0]: i for i, x in enumerate(PROGRAM_SET)}
+PADDING = {'ret': 2, 'prog_id': -1, 'args': [0, 0]}
 
 
 class Arguments():             # Program Arguments
