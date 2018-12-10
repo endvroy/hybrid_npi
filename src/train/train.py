@@ -90,12 +90,12 @@ def test(npi, data, load_model):
             new_prog_id = torch.ones(agent.npi.task.batch_size, dtype=torch.int64).to(device=agent._device) * 2
             new_args = torch.zeros(agent.npi.task.batch_size, agent.npi.core.args_dim).to(device=agent._device)
             count = 0
+
+            print('Step', count, 'Ret:', new_ret[0].data.tolist(), ' prog id:', int(new_prog_id[0]), ' Args:',
+                  new_args[0].data.tolist())
+            agent.npi.task.scratch_pads[0].pretty_print()
             
-            while max(new_ret[0]) == 0:
-                # pretty print each step
-                print('Step', count, 'Ret:', new_ret[0].data.tolist(), ' prog id:', int(new_prog_id[0]), ' Args:', new_args[0].data.tolist())
-                agent.npi.task.scratch_pads[0].pretty_print()
-                
+            while torch.argmax(new_ret[0]) == 0:
                 # forward
                 new_ret, new_prog_id_log_probs, new_args, hidden = agent.npi(new_prog_id, new_args, hidden)
                 new_prog_id = torch.argmax(new_prog_id_log_probs, dim=1)
@@ -103,6 +103,11 @@ def test(npi, data, load_model):
 
                 # update env
                 agent.npi.task.f_env(new_prog_id, new_args)
+
+                # pretty print each step
+                print('Step', count, 'Ret:', new_ret[0].data.tolist(), ' prog id:', int(new_prog_id[0]), ' Args:',
+                      new_args[0].data.tolist())
+                agent.npi.task.scratch_pads[0].pretty_print()
             
         agent.npi.train()
         return total_loss
