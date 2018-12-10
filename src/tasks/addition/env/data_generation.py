@@ -25,8 +25,6 @@ def generate_addition(prefix, data_dir, num_examples, debug=False, maximum=100, 
     for i in range(num_examples):
         in1 = np.random.randint(maximum - 1)
         in2 = np.random.randint(maximum - in1)
-        in1 = 25
-        in2 = 19
         if debug and i % debug_every == 0:
             trace = Trace(in1, in2, True).trace
         else:
