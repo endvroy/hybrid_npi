@@ -60,7 +60,7 @@ def build(in1s,
     return task
 
 
-class TaskParams():
+class TaskParams(nn.Module):
     def __init__(self,
                  hidden_dim,
                  state_dim,
@@ -72,6 +72,7 @@ class TaskParams():
                  default_argument_num,
                  program_embedding_size,
                  program_size):
+        super(TaskParams, self).__init__()
         # config params
         self.environment_row = environment_row
         self.environment_col = environment_col

@@ -65,6 +65,10 @@ def eval(agent, data, traces):
 # batchsize here could only be 1
 def test(npi, data, load_model):
     agent = Agent(npi)
+    
+    # load model
+    if len(data) > 0:
+        agent.npi.task = data[0]
     checkpoint = torch.load(load_model)
     agent.npi.load_state_dict(checkpoint['state_dict'])
     agent.pretrain_optimizer.load_state_dict(checkpoint['optimizer'])
@@ -109,7 +113,6 @@ def test(npi, data, load_model):
                       new_args[0].data.tolist())
                 agent.npi.task.scratch_pads[0].pretty_print()
             
-        agent.npi.train()
         return total_loss
 
 
