@@ -91,7 +91,7 @@ def test(npi, data, load_model):
             new_args = torch.zeros(agent.npi.task.batch_size, agent.npi.core.args_dim).to(device=agent._device)
             count = 0
             
-            while max(new_ret[0]) >= 0:
+            while max(new_ret[0]) == 0:
                 # pretty print each step
                 print('Step', count, 'Ret:', new_ret[0].data.tolist(), ' prog id:', int(new_prog_id[0]), ' Args:', new_args[0].data.tolist())
                 agent.npi.task.scratch_pads[0].pretty_print()
