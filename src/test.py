@@ -20,7 +20,7 @@ batchsize = 1
 
 data = []
 new_batch = True
-exp_id = "exp1_5"
+exp_id = "exp1_2"
 
 with open(os.path.join(addition_config.DATA_DIR, exp_id + '_int.json'), 'r') as fin:
         # element of traces is list=[[["prog_name",prog_id],args,ret],[...],[...]]

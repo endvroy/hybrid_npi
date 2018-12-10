@@ -25,6 +25,8 @@ def generate_addition(prefix, data_dir, num_examples, debug=False, maximum=100, 
     for i in range(num_examples):
         in1 = np.random.randint(maximum - 1)
         in2 = np.random.randint(maximum - in1)
+        in1 = 27
+        in2 = 17
         if debug and i % debug_every == 0:
             trace = Trace(in1, in2, True).trace
         else:
@@ -39,7 +41,7 @@ def generate_addition(prefix, data_dir, num_examples, debug=False, maximum=100, 
 
 
 if __name__ == '__main__':
-    num_training = 5
+    num_training = 2
     TRAINING_INT_DATA_PATH = os.path.join(addition_config.DATA_DIR, "exp1_" + str(num_training) + "_int.json")
     TRAINING_TRACE_DATA_PATH = os.path.join(addition_config.DATA_DIR, "exp1_" + str(num_training) + "_trace.json")
 
