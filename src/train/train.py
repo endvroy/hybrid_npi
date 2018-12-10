@@ -7,7 +7,7 @@ from tasks.task_base import TaskBase
 from tasks.addition.env import config
 
 PRETRAIN_WRIGHT_DECAY = 0.0001
-PRETRAIN_LR = 0.01
+PRETRAIN_LR = 0.001
 
 
 class Agent(object):
