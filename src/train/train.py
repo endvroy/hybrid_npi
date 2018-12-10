@@ -62,7 +62,16 @@ def eval(agent, data, traces):
         return total_loss
 
 
-def test(agent, data):
+# batchsize here could only be 1
+def test(npi, data, load_model):
+    agent = Agent(npi)
+    checkpoint = torch.load(load_model)
+    agent.npi.load_state_dict(checkpoint['state_dict'])
+    agent.pretrain_optimizer.load_state_dict(checkpoint['optimizer'])
+    start_epoch = checkpoint['epoch'] + 1
+    best_loss = checkpoint['loss']
+    print("Load model. Epoch={}, Loss={}".format(start_epoch, best_loss))
+    
     with torch.no_grad():
         agent.npi.eval()
         total_loss = 0
@@ -80,18 +89,21 @@ def test(agent, data):
             new_ret = torch.zeros(agent.npi.task.batch_size, 2).to(device=agent._device)
             new_prog_id = torch.ones(agent.npi.task.batch_size, dtype=torch.int64).to(device=agent._device) * 2
             new_args = torch.zeros(agent.npi.task.batch_size, agent.npi.core.args_dim).to(device=agent._device)
+            count = 0
             
-            while max(torch.argmax(new_ret, dim=1)) == 0:
+            while max(new_ret[0]) >= 0:
+                # pretty print each step
+                print('Step', count, 'Ret:', new_ret[0].data.tolist(), ' prog id:', int(new_prog_id[0]), ' Args:', new_args[0].data.tolist())
+                agent.npi.task.scratch_pads[0].pretty_print()
+                
                 # forward
                 new_ret, new_prog_id_log_probs, new_args, hidden = agent.npi(new_prog_id, new_args, hidden)
                 new_prog_id = torch.argmax(new_prog_id_log_probs, dim=1)
+                count += 1
 
                 # update env
-                print('Ret:', new_ret[0], ' prog id:', new_prog_id[0], ' Args:', new_args[0])
                 agent.npi.task.f_env(new_prog_id, new_args)
             
-            print(torch.argmax(new_ret, dim=1))
-            agent.npi.task.scratch_pads[int(torch.argmax(torch.argmax(new_ret, dim=1)))].pretty_print()
         agent.npi.train()
         return total_loss
 
@@ -127,8 +139,6 @@ def train(npi, data, traces, epochs=100, train_ratio=0.9,
         ret_loss = 0
         prog_id_error = 0
         
-        # test(agent, eval_data)
-
         for i in range(len(train_data)):
             agent.npi.task = train_data[i]
             agent.npi.task.task_params = agent.npi.task_params

@@ -11,7 +11,7 @@ import numpy as np
 from trace import Trace
 import config as addition_config
 import os
-def generate_addition(prefix, data_dir, num_examples, debug=False, maximum=10000000000, debug_every=1000):
+def generate_addition(prefix, data_dir, num_examples, debug=False, maximum=100, debug_every=1000):
     """
     Generates addition data with the given string prefix (i.e. 'train', 'test') and the specified
     number of examples.
@@ -39,7 +39,7 @@ def generate_addition(prefix, data_dir, num_examples, debug=False, maximum=10000
 
 
 if __name__ == '__main__':
-    num_training = 12800
+    num_training = 5
     TRAINING_INT_DATA_PATH = os.path.join(addition_config.DATA_DIR, "exp1_" + str(num_training) + "_int.json")
     TRAINING_TRACE_DATA_PATH = os.path.join(addition_config.DATA_DIR, "exp1_" + str(num_training) + "_trace.json")
 
