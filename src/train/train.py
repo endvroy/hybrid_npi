@@ -129,6 +129,9 @@ def train(npi, data, traces, epochs=100, train_ratio=0.9,
     best_loss = math.inf
     start_epoch = 1
     
+    if len(data) > 0:
+        agent.npi.task = data[0]
+    
     # load
     if load_model != None:
         checkpoint = torch.load(load_model)

@@ -20,7 +20,7 @@ batchsize = 1
 
 data = []
 new_batch = True
-exp_id = "exp1_2"
+exp_id = "exp1_5"
 
 with open(os.path.join(addition_config.DATA_DIR, exp_id + '_int.json'), 'r') as fin:
         # element of traces is list=[[["prog_name",prog_id],args,ret],[...],[...]]
@@ -84,4 +84,4 @@ npi = npi_factory(
 )
 print('Initializing NPI Model!')
 print("Data:", len(mytasks))
-test(npi, mytasks, load_model='./model_640/npi_model_latest.net')
+test(npi, mytasks, load_model='./model_12800/npi_model_latest.net')
