@@ -86,9 +86,9 @@ def test(npi, data, load_model):
             # no trace
             hidden = torch.zeros(agent.npi.core.n_lstm_layers, 1, agent.npi.core.hidden_dim), \
                      torch.zeros(agent.npi.core.n_lstm_layers, 1, agent.npi.core.hidden_dim)
-            new_ret = torch.zeros(agent.npi.task.batch_size, 2).to(device=agent._device)
-            new_prog_id = torch.ones(agent.npi.task.batch_size, dtype=torch.int64).to(device=agent._device) * 2
-            new_args = torch.zeros(agent.npi.task.batch_size, agent.npi.core.args_dim).to(device=agent._device)
+            new_ret = torch.zeros(task.batch_size, 2).to(device=agent._device)
+            new_prog_id = torch.ones(task.batch_size, dtype=torch.int64).to(device=agent._device) * 2
+            new_args = torch.zeros(task.batch_size, agent.npi.core.args_dim).to(device=agent._device)
             count = 0
 
             print('Step', count, ' prog id:', config.REV_PROGRAM_ID[int(new_prog_id[0])], ' Args:',
