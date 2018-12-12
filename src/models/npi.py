@@ -28,7 +28,6 @@ class PKeyMem(nn.Module):
 class NPI(nn.Module):
     def __init__(self,
                  core,
-                 task,
                  task_params,
                  pkey_mem,
                  ret_threshold,
@@ -36,7 +35,6 @@ class NPI(nn.Module):
                  prog_dim):
         super(NPI, self).__init__()
         self.core = core
-        self.task = task
         self.task_params = task_params
         self.ret_threshold = ret_threshold
         self.n_progs = n_progs
@@ -44,20 +42,20 @@ class NPI(nn.Module):
         self.pkey_mem = pkey_mem
         self.prog_mem = nn.Parameter(torch.randn(n_progs, prog_dim))
 
-    def forward(self, prog_id, args, hidden):
+    def forward(self, task, prog_id, args, hidden):
         """
         :param prog_id: Tesnor[seq_len, batch]
         :param args: Tensor[seq_len, batch, args_dim]
         :return: Tensor[seq_len, batch], Tensor[seq_len, batch, n_progs], Tensor[seq_len, batch, args_dim]
         """
-        state = self.task.f_enc(args)
+        state = task.f_enc(self.task_params, args)
         prog = self.prog_mem[prog_id]
         ret, pkey, new_args, last_h = self.core(state, prog, hidden)
         scores = self.pkey_mem.calc_correlation_scores(pkey)
         prog_id_log_probs = F.log_softmax(scores, dim=1)  # log softmax is more numerically stable
         return ret, prog_id_log_probs, new_args, last_h
 
-    def run(self, prog_id, args):
+    def run(self, task, prog_id, args):
         # todo: change
         self.core.reset()
         ret = 0
@@ -71,14 +69,13 @@ class NPI(nn.Module):
                 # return probability, NEXT program id, NEXT program args
                 yield ret, prog_id, args
                 if self.pkey_mem.is_act(prog_id):
-                    self.task.f_env(prog_id, args)
+                    task.f_env(prog_id, args)
                 else:
                     stack.append((ret, prog_id, args))
                     ret = 0
 
 
-def npi_factory(task,
-                task_params,
+def npi_factory(task_params,
                 state_dim,  # state tensor dimension
                 n_progs,  # number of programs
                 prog_dim,  # program embedding dimension
@@ -87,6 +84,7 @@ def npi_factory(task,
                 ret_threshold,  # return probability threshold
                 pkey_dim,  # program key dimension
                 args_dim,  # argument vector dimension
+                args_depth,
                 n_act=1):  # num of ACTs
     if torch.cuda.is_available():
       torch.set_default_tensor_type('torch.cuda.FloatTensor')
@@ -97,14 +95,14 @@ def npi_factory(task,
                    hidden_dim=hidden_dim,
                    n_lstm_layers=n_lstm_layers,
                    pkey_dim=pkey_dim,
-                   args_dim=args_dim)
+                   args_dim=args_dim,
+                   args_depth=args_depth)
 
     pkey_mem = PKeyMem(n_progs=n_progs,
                        pkey_dim=pkey_dim,
                        n_act=n_act)
 
     model = NPI(core=core,
-                task=task,
                 task_params=task_params,
                 pkey_mem=pkey_mem,
                 ret_threshold=ret_threshold,

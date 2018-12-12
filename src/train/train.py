@@ -30,12 +30,11 @@ def eval(agent, data, traces):
         total_loss = 0
     
         for i in range(len(data)):
-            agent.npi.task = data[i]
-            agent.npi.task.task_params = agent.npi.task_params
+            task = data[i]
         
             # Setup Environment
             agent.npi.core.reset()
-            agent.npi.task.reset()
+            task.reset()
             
             # trace one by one
             trace = traces[i]
@@ -46,16 +45,16 @@ def eval(agent, data, traces):
                 args = torch.tensor(trace["args"][t]).to(device=agent._device)
           
                 # forward
-                new_ret, new_prog_id_log_probs, new_args, hidden = agent.npi(prog_id, args, hidden)
+                new_ret, new_prog_id_log_probs, new_args, hidden = agent.npi(task, prog_id, args, hidden)
           
                 # update env
                 truth_ret = torch.tensor(trace["ret"][t + 1], dtype=torch.int64).to(device=agent._device)
                 truth_prog_id = torch.tensor(trace["prog_id"][t + 1], dtype=torch.int64).to(device=agent._device)
-                truth_args = torch.tensor(trace["args"][t + 1], dtype=torch.float32).to(device=agent._device)
-                agent.npi.task.f_env(truth_prog_id, truth_args)
+                truth_args = torch.tensor(trace["args"][t + 1], dtype=torch.int64).to(device=agent._device)
+                task.f_env(truth_prog_id, truth_args)
           
                 # loss
-                total_loss += (agent.criterion_mse(new_args, truth_args)
+                total_loss += (agent.criterion_cross(new_args, truth_args)
                                + agent.criterion_cross(new_ret, truth_ret)
                                + agent.criterion_nll(new_prog_id_log_probs, truth_prog_id))
         agent.npi.train()
@@ -67,8 +66,6 @@ def test(npi, data, load_model):
     agent = Agent(npi)
     
     # load model
-    if len(data) > 0:
-        agent.npi.task = data[0]
     checkpoint = torch.load(load_model)
     agent.npi.load_state_dict(checkpoint['state_dict'])
     agent.pretrain_optimizer.load_state_dict(checkpoint['optimizer'])
@@ -81,11 +78,10 @@ def test(npi, data, load_model):
         total_loss = 0
     
         for i in range(len(data)):
-            agent.npi.task = data[i]
-            agent.npi.task.task_params = agent.npi.task_params
+            task = data[i]
         
             # Setup Environment
-            agent.npi.task.reset()
+            task.reset()
             
             # no trace
             hidden = torch.zeros(agent.npi.core.n_lstm_layers, 1, agent.npi.core.hidden_dim), \
@@ -97,21 +93,21 @@ def test(npi, data, load_model):
 
             print('Step', count, ' prog id:', config.REV_PROGRAM_ID[int(new_prog_id[0])], ' Args:',
                   new_args[0].data.tolist())
-            agent.npi.task.scratch_pads[0].pretty_print()
+            task.scratch_pads[0].pretty_print()
             
             while torch.argmax(new_ret[0]) == 0:
                 # forward
-                new_ret, new_prog_id_log_probs, new_args, hidden = agent.npi(new_prog_id, new_args, hidden)
+                new_ret, new_prog_id_log_probs, new_args, hidden = agent.npi(task, new_prog_id, new_args, hidden)
                 new_prog_id = torch.argmax(new_prog_id_log_probs, dim=1)
                 count += 1
 
                 # update env
-                agent.npi.task.f_env(new_prog_id, new_args)
+                task.f_env(new_prog_id, new_args)
 
                 # pretty print each step
                 print('Step', count, ' prog id:', config.REV_PROGRAM_ID[int(new_prog_id[0])], ' Args:',
                       new_args[0].int().data.tolist())
-                agent.npi.task.scratch_pads[0].pretty_print()
+                task.scratch_pads[0].pretty_print()
             
         return total_loss
 
@@ -128,9 +124,6 @@ def train(npi, data, traces, epochs=100, train_ratio=0.9,
 
     best_loss = math.inf
     start_epoch = 1
-    
-    if len(data) > 0:
-        agent.npi.task = data[0]
     
     # load
     if load_model != None:
@@ -151,12 +144,11 @@ def train(npi, data, traces, epochs=100, train_ratio=0.9,
         prog_id_error = 0
         
         for i in range(len(train_data)):
-            agent.npi.task = train_data[i]
-            agent.npi.task.task_params = agent.npi.task_params
+            task = train_data[i]
 
             # Setup Environment
             agent.npi.core.reset()
-            agent.npi.task.reset()
+            task.reset()
 
             # trace one by one
             trace = train_traces[i]
@@ -168,17 +160,17 @@ def train(npi, data, traces, epochs=100, train_ratio=0.9,
     
                 # forward
                 agent.pretrain_optimizer.zero_grad()
-                new_ret, new_prog_id_log_probs, new_args, hidden = agent.npi(prog_id, args, hidden)
+                new_ret, new_prog_id_log_probs, new_args, hidden = agent.npi(task, prog_id, args, hidden)
                 new_prog_id = torch.argmax(new_prog_id_log_probs, dim=1)
   
                 # update env
                 truth_ret = torch.tensor(trace["ret"][t+1], dtype=torch.int64).to(device=agent._device)
                 truth_prog_id = torch.tensor(trace["prog_id"][t+1], dtype=torch.int64).to(device=agent._device)
-                truth_args = torch.tensor(trace["args"][t+1], dtype=torch.float32).to(device=agent._device)
-                agent.npi.task.f_env(truth_prog_id, truth_args)
+                truth_args = torch.tensor(trace["args"][t+1], dtype=torch.int64).to(device=agent._device)
+                task.f_env(truth_prog_id, truth_args)
   
                 # loss
-                arg_loss_now = agent.criterion_mse(new_args, truth_args)
+                arg_loss_now = agent.criterion_cross(new_args, truth_args)
                 ret_loss_now = agent.criterion_cross(new_ret, truth_ret)
                 prog_loss_now = agent.criterion_nll(new_prog_id_log_probs, truth_prog_id)
                 prog_id_error += float(((new_prog_id - truth_prog_id) ** 2).sum()) / len(new_prog_id)
