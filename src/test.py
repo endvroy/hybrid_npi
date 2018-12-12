@@ -23,10 +23,6 @@ data = []
 traces = []  # element of trace is dict={'ret':xx,'prog_id:xx','args:xx'}
 new_batch = True
 exp_id = "exp1_5"
-traces = trace_json_to_input(batchsize=batchsize, args_dim=args_dim, padding=True,
-                        in_file=os.path.join(addition_config.DATA_DIR, exp_id + '_trace.json'),
-                        out_file=os.path.join(addition_config.DATA_DIR, exp_id + '_trace_input.json'))
-print(len(traces))
 # TODO: better way to deal with interger?
 with open(os.path.join(addition_config.DATA_DIR, exp_id + '_int.json'), 'r') as fin:
         # element of traces is list=[[["prog_name",prog_id],args,ret],[...],[...]]
