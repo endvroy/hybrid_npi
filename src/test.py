@@ -16,12 +16,18 @@ torch.manual_seed(seed)
 # TODO: reorganize with argsparse
 state_dim = 2
 args_dim = addition_config.CONFIG["ARGUMENT_NUM"]
+args_depth = addition_config.CONFIG["ARGUMENT_DEPTH"]
 batchsize = 1
 
 data = []
+traces = []  # element of trace is dict={'ret':xx,'prog_id:xx','args:xx'}
 new_batch = True
 exp_id = "exp1_5"
-
+traces = trace_json_to_input(batchsize=batchsize, args_dim=args_dim, padding=True,
+                        in_file=os.path.join(addition_config.DATA_DIR, exp_id + '_trace.json'),
+                        out_file=os.path.join(addition_config.DATA_DIR, exp_id + '_trace_input.json'))
+print(len(traces))
+# TODO: better way to deal with interger?
 with open(os.path.join(addition_config.DATA_DIR, exp_id + '_int.json'), 'r') as fin:
         # element of traces is list=[[["prog_name",prog_id],args,ret],[...],[...]]
         nums = json.load(fin)
@@ -46,13 +52,8 @@ task_parameters = build_param(
     hidden_dim = hidden_dim,
     state_dim = state_dim,
     environment_row = addition_config.CONFIG["ENVIRONMENT_ROW"],
-    environment_col = addition_config.CONFIG["ENVIRONMENT_COL"],
     environment_depth = addition_config.CONFIG["ENVIRONMENT_DEPTH"],
     argument_num = args_dim,
-    argument_depth = addition_config.CONFIG["ARGUMENT_DEPTH"],
-    default_argument_num = addition_config.CONFIG["DEFAULT_ARG_VALUE"],
-    program_embedding_size = addition_config.CONFIG["PROGRAM_EMBEDDING_SIZE"],
-    program_size = addition_config.CONFIG["PROGRAM_KEY_SIZE"]
 )
 for i in range(data_num):
     in1s = data[i][0]
@@ -64,13 +65,16 @@ for i in range(data_num):
         environment_row = addition_config.CONFIG["ENVIRONMENT_ROW"],
         environment_col = addition_config.CONFIG["ENVIRONMENT_COL"],
         environment_depth = addition_config.CONFIG["ENVIRONMENT_DEPTH"],
-        task_params = task_parameters
+        argument_num=args_dim,
+        argument_depth=args_depth,
+        default_argument_num=addition_config.CONFIG["DEFAULT_ARG_VALUE"],
+        program_embedding_size=addition_config.CONFIG["PROGRAM_EMBEDDING_SIZE"],
+        program_size=addition_config.CONFIG["PROGRAM_KEY_SIZE"],
     )
     mytasks.append(addition_task)
 
 # npi
 npi = npi_factory(
-    task=AdditionTask,
     task_params=task_parameters,
     state_dim=state_dim,
     n_progs=5,
@@ -80,6 +84,7 @@ npi = npi_factory(
     ret_threshold=0.5,
     pkey_dim=addition_config.CONFIG["PROGRAM_KEY_SIZE"],
     args_dim=args_dim,
+    args_depth=args_depth,
     n_act=2
 )
 print('Initializing NPI Model!')
