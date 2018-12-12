@@ -99,6 +99,7 @@ def test(npi, data, load_model):
                 # forward
                 new_ret, new_prog_id_log_probs, new_args, hidden = agent.npi(task, new_prog_id, new_args, hidden)
                 new_prog_id = torch.argmax(new_prog_id_log_probs, dim=1)
+                new_args = torch.argmax(new_args, dim=1)
                 count += 1
 
                 # update env
