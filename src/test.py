@@ -84,4 +84,4 @@ npi = npi_factory(
 )
 print('Initializing NPI Model!')
 print("Data:", len(mytasks))
-test(npi, mytasks, load_model='./model_12800/npi_model_latest.net')
+test(npi, mytasks, load_model='./model_640/npi_model_latest.net')
